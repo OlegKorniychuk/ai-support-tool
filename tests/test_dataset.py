@@ -2,7 +2,7 @@ from support_ai.classifier.dataset import load_tickets
 from support_ai.classifier.schema import Category
 
 MIN_TICKETS = 15
-MAX_TICKETS = 25
+MAX_TICKETS = 30
 
 
 def test_loader_parses_all_tickets():
@@ -69,3 +69,29 @@ def test_has_a_human_request_ticket():
 def test_has_an_expert_request_that_is_not_a_human_request():
     cases = load_tickets()
     assert any("expert_request_not_human" in c.tags for c in cases)
+
+
+def test_has_an_unrelated_ticket():
+    cases = load_tickets()
+    assert any("unrelated" in c.tags for c in cases)
+
+
+def test_has_a_pure_injection_ticket_that_must_not_escalate():
+    cases = load_tickets()
+    pure = [c for c in cases if "injection" in c.tags and c.expected_category == "unclear"]
+    assert pure
+    assert all(not c.expected_needs_review for c in pure)
+
+
+def test_has_a_vague_app_quality_complaint():
+    cases = load_tickets()
+    assert any("vague_complaint" in c.tags for c in cases)
+
+
+def test_has_general_feedback_tickets_positive_and_non_english():
+    cases = load_tickets()
+    feedback = [c for c in cases if c.expected_category == "general_feedback"]
+    assert len(feedback) >= 3
+    assert any("positive" in c.tags for c in feedback)
+    assert any("non_english" in c.tags for c in feedback)
+    assert all(not c.expected_needs_review for c in feedback)

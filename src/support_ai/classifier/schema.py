@@ -18,6 +18,7 @@ class Category(StrEnum):
     ACCOUNT_ACCESS = "account_access"
     FEATURE_REQUEST = "feature_request"
     USAGE_HELP = "usage_help"
+    GENERAL_FEEDBACK = "general_feedback"
     UNCLEAR = "unclear"
 
 
@@ -37,6 +38,7 @@ class NextStep(StrEnum):
     SEND_KB_ARTICLE = "send_kb_article"
     REQUEST_MORE_INFO = "request_more_info"
     ESCALATE_SENIOR = "escalate_senior"
+    SEND_GENERIC_REPLY = "send_generic_reply"
 
 
 class LLMClassification(BaseModel):

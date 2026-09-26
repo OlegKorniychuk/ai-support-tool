@@ -81,6 +81,7 @@ def test_category_enum_is_exactly_the_expected_set():
         "account_access",
         "feature_request",
         "usage_help",
+        "general_feedback",
         "unclear",
     }
 

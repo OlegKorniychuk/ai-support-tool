@@ -16,6 +16,7 @@ from support_ai.classifier.schema import (
 CATEGORY_NEXT_STEP: dict[Category, NextStep] = {
     Category.USAGE_HELP: NextStep.SEND_KB_ARTICLE,
     Category.UNCLEAR: NextStep.REQUEST_MORE_INFO,
+    Category.GENERAL_FEEDBACK: NextStep.SEND_GENERIC_REPLY,
 }
 
 
@@ -28,8 +29,8 @@ def apply_rules(classification: LLMClassification, *, failed: bool = False) -> C
     remain informational only — they no longer affect the flag.
 
     Independently of the flag, `next_step` is forced to match `CATEGORY_NEXT_STEP` for
-    `usage_help` and `unclear`, so those two categories always route the same way no
-    matter what the LLM returned for `next_step`.
+    `usage_help`, `unclear` and `general_feedback`, so those categories always route the
+    same way no matter what the LLM returned for `next_step`.
     """
     reasons: list[str] = []
 

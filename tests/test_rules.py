@@ -83,9 +83,10 @@ def test_apply_rules_preserves_llm_fields():
     [
         (Category.USAGE_HELP, NextStep.SEND_KB_ARTICLE),
         (Category.UNCLEAR, NextStep.REQUEST_MORE_INFO),
+        (Category.GENERAL_FEEDBACK, NextStep.SEND_GENERIC_REPLY),
     ],
 )
-def test_next_step_is_enforced_for_usage_help_and_unclear(category, expected_next_step):
+def test_next_step_is_enforced_for_mapped_categories(category, expected_next_step):
     # the LLM picked the "wrong" next step; rules.py must override it regardless
     classification = _classification(category=category, next_step=NextStep.ROUTE_BILLING)
     result = apply_rules(classification)
@@ -98,3 +99,22 @@ def test_next_step_is_untouched_for_other_categories():
     )
     result = apply_rules(classification)
     assert result.next_step is NextStep.ROUTE_TECH_SUPPORT
+
+
+def test_general_feedback_is_not_flagged_for_review():
+    classification = _classification(
+        category=Category.GENERAL_FEEDBACK,
+        priority=Priority.P4,
+        next_step=NextStep.ROUTE_TECH_SUPPORT,
+    )
+    result = apply_rules(classification)
+    assert result.needs_human_review is False
+    assert result.next_step is NextStep.SEND_GENERIC_REPLY
+
+
+def test_general_feedback_with_explicit_human_request_is_still_flagged():
+    classification = _classification(category=Category.GENERAL_FEEDBACK, requests_human=True)
+    result = apply_rules(classification)
+    assert result.needs_human_review is True
+    assert result.review_reasons == ["human_requested"]
+    assert result.next_step is NextStep.SEND_GENERIC_REPLY

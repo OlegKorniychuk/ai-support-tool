@@ -1,4 +1,7 @@
-timestamp,model,prompt_version,n_tickets,category_accuracy,priority_accuracy,human_review_recall,latency_p50_ms,latency_p95_ms,cost_per_ticket_usd,cost_per_10k_tickets_usd,human_review_precision
+timestamp,model,prompt_version,n_tickets,category_accuracy,priority_accuracy,human_review_recall,latency_p50_ms,latency_p95_ms,cost_per_ticket_usd,cost_per_10k_tickets_usd,human_review_precision,cache_hit_rate
 20260926T130747Z,gpt-5.4-nano,v1,3,1.0,1.0,1.0,1520,2321,0.000356,3.56
 20260926T141413Z,gpt-5.4-nano,v1,18,0.9444,0.7222,1.0,1423,3354,0.000335,3.35
 20260926T153745Z,gpt-5.4-nano,v2,23,0.9565,0.8696,1.0,1469,3679,0.000479,4.79,1.0
+20260926T171521Z,gpt-5.4-nano,v3,28,0.9643,0.8571,0.75,1447,2241,0.000484,4.84,1.0,0.0702
+20260926T172304Z,gpt-5.4-mini,v3,28,0.8929,0.7857,1.0,1261,1929,0.001701,17.01,0.5714,0.1504
+20260926T173041Z,gpt-5,v3,28,0.9643,0.8929,1.0,4922,9840,0.003336,33.36,0.6667,0.8773

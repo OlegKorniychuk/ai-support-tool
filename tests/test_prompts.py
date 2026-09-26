@@ -10,7 +10,7 @@ import json
 import re
 
 from support_ai.classifier.classify import PROMPTS_DIR
-from support_ai.classifier.schema import LLMClassification
+from support_ai.classifier.schema import Category, LLMClassification, NextStep
 
 RESPONSE_FORMAT_BLOCK = re.compile(r"## Response format.*?```json\n(?P<shape>.*?)\n```", re.DOTALL)
 
@@ -25,3 +25,19 @@ def _response_shape_keys(prompt_version: str) -> set[str]:
 
 def test_v2_response_shape_keys_match_llm_classification_fields():
     assert _response_shape_keys("v2") == set(LLMClassification.model_fields.keys())
+
+
+def test_v3_response_shape_keys_match_llm_classification_fields():
+    assert _response_shape_keys("v3") == set(LLMClassification.model_fields.keys())
+
+
+def test_v3_response_shape_lists_every_next_step():
+    text = (PROMPTS_DIR / "v3.md").read_text()
+    shape = json.loads(RESPONSE_FORMAT_BLOCK.search(text).group("shape"))
+    assert all(step.value in shape["next_step"] for step in NextStep)
+
+
+def test_v3_response_shape_lists_every_category():
+    text = (PROMPTS_DIR / "v3.md").read_text()
+    shape = json.loads(RESPONSE_FORMAT_BLOCK.search(text).group("shape"))
+    assert all(category.value in shape["category"] for category in Category)
