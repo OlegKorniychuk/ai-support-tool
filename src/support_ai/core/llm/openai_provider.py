@@ -84,11 +84,13 @@ class OpenAIProvider:
             raise LLMInvalidOutput(_describe_missing_output(response))
 
         usage = response.usage
+        details = getattr(usage, "input_tokens_details", None) if usage else None
         return LLMResult(
             data=parsed.model_dump(mode="json"),
             usage=Usage(
                 input_tokens=usage.input_tokens if usage else 0,
                 output_tokens=usage.output_tokens if usage else 0,
+                cached_input_tokens=(getattr(details, "cached_tokens", None) or 0),
             ),
             model=response.model,
             latency_ms=latency_ms,

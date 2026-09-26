@@ -31,20 +31,21 @@ Nebula support gets thousands of tickets a month, and all of them are routed by 
 - `expert_complaint`: complaints about an expert's conduct or quality
 - `account_access`: login, password, account deletion or data requests
 - `feature_request`: suggestions
-- `other`: none of the above, or unclear
+- `usage_help`: a how-to question about the app, answered with a KB article
+- `unclear`: too short, too vague to act on, or unrelated to Nebula
 
 **Priority:**
 
-- `P1`: urgent. Legal or chargeback threats, safety concerns, payment taken but no access.
+- `P1`: urgent, positively urgent only. Legal or chargeback threats, safety concerns, payment taken but no access.
 - `P2`: high. A blocking bug, a refund request, an expert complaint.
 - `P3`: normal.
-- `P4`: low. Feature requests, general questions.
+- `P4`: low. Feature requests, general questions, usage-help and unclear tickets.
 
-**Next step (enum):** `route_billing`, `route_refunds`, `route_tech_support`, `route_expert_quality`, `route_account_support`, `send_kb_article`, `request_more_info`, `escalate_senior`. Each next step also comes with a one-line free-text note.
+**Next step (enum):** `route_billing`, `route_refunds`, `route_tech_support`, `route_expert_quality`, `route_account_support`, `send_kb_article`, `request_more_info`, `escalate_senior`. Each next step also comes with a one-line free-text note. `usage_help` always maps to `send_kb_article` and `unclear` always maps to `request_more_info` — deterministic code in `rules.py` enforces this mapping after the LLM call, regardless of what the LLM picked.
 
 ### Output schema
 
-Validated with pydantic:
+Validated with pydantic (`LLMClassification` uses `extra="forbid"`, so an unexpected extra key is a validation error, not a silently-dropped one):
 
 ```json
 {
@@ -56,23 +57,24 @@ Validated with pydantic:
   "language": "uk",
   "tone": "aggressive",
   "confidence": 0.82,
-  "needs_human_review": true,
-  "review_reasons": ["refund_request", "mixed_topics"],
+  "requests_human": false,
+  "needs_human_review": false,
+  "review_reasons": [],
   "rationale": "short explanation"
 }
 ```
 
-The LLM fills every field except `needs_human_review` and `review_reasons`. Deterministic code in `rules.py` sets those two, so the escalation decision is never delegated to the model (this is the D1.7 decision).
+The LLM fills every field except `needs_human_review` and `review_reasons` — this includes `requests_human`, a boolean the LLM extracts from the ticket (true only if the customer explicitly asks for a live human agent instead of a bot), but does not decide the flag with. Deterministic code in `rules.py` sets `needs_human_review` and `review_reasons` from `requests_human` and the other fields, so the escalation decision is never delegated to the model (this is the D1.7 decision).
 
 ### Human-in-the-loop rules (flag only)
 
 `needs_human_review = true` if any of these holds:
 
-- `confidence` < 0.7 (the threshold is configurable)
-- category is `refund_request` or `expert_complaint`
-- priority is `P1` (legal or chargeback threats, safety)
-- the ticket has 2 or more topics
-- classification failed and the fallback result was used
+- priority is `P1` (legal or chargeback threats, safety, payment taken but no access) — reason `p1_priority`
+- `requests_human` is `true`: the customer explicitly asked for a live support person, not a bot — reason `human_requested`
+- classification failed and the fallback result was used — reason `classification_failed`
+
+`confidence` and `secondary_categories` remain informational only; they no longer trigger a review on their own. Empty or whitespace-only input is not a classification failure: it returns a deterministic `unclear` / `P4` / `request_more_info` result with no LLM call and no flag.
 
 The UI shows a red "Needs human review" badge with the reasons. Nothing is auto-routed.
 
@@ -176,7 +178,8 @@ def classify(ticket: str, *, model: str, prompt_version: str = DEFAULT_PROMPT) -
 - **Invalid JSON or schema mismatch:** request JSON output with a schema. If validation still fails, make one repair retry that sends the validation error back to the model. If that fails too, move to the next model.
 - **Timeout:** 20 s per call, configurable. One retry, then the next model.
 - **Rate limit or 5xx:** exponential backoff, at most 2 retries, then the next model in the fallback chain.
-- **All models fail:** return a fallback result (`category=other`, `priority=P3`, `next_step=request_more_info`, `confidence=0`, `needs_human_review=true`, reason `classification_failed`). The UI never crashes.
+- **All models fail:** return a fallback result (`category=unclear`, `priority=P3`, `next_step=request_more_info`, `confidence=0`, `needs_human_review=true`, reason `classification_failed`). The UI never crashes.
+- **Empty or whitespace-only input:** not a failure. Return a deterministic `category=unclear`, `priority=P4`, `next_step=request_more_info` result with no LLM call and `needs_human_review=false`.
 
 ## Caching (X5)
 
@@ -187,12 +190,18 @@ given real-world ticket volume and variety. That risk-to-benefit ratio is not wo
 code. The static system prompt is still sent first in each request so that OpenAI's provider-side
 prompt caching can apply automatically; this needs no application code.
 
+Provider-side caching is **measured**, not just assumed. The provider adapter records
+`cached_input_tokens` (a subset of `input_tokens`). `cost.py` bills these at the model's
+`cached_input_price_per_1m` (about 10% of the full input price for the OpenAI models), so the cost
+per ticket and the 10k forecast reflect the discount. The eval records a `cache_hit_rate` (cached
+input tokens ÷ all input tokens) per run, and both pages show cached tokens.
+
 ## Testing Strategy
 
 - **Unit tests (pytest, no network):**
   - schema validation
   - `rules.py`, with a table-driven test for each HITL rule
-  - `cost.py` math
+  - `cost.py` math, including cached-token pricing
   - `llm.py` retry and fallback logic, using a mocked client that simulates invalid JSON, timeouts and 429s
 - **Eval (LLM, run manually, not in pytest):**
   - `scripts/run_eval.py` over `data/tickets.jsonl`
@@ -229,7 +238,7 @@ prompt caching can apply automatically; this needs no application code.
 - [ ] The app is deployed on Streamlit Community Cloud. Pasting a ticket returns a valid result in under 10 s with the cheapest passing model.
 - [ ] Every edge-case ticket returns a valid schema. None crash.
 - [ ] The eval shows **category accuracy ≥ 85%** and **priority accuracy ≥ 75%** for the chosen default model.
-- [ ] 100% of tickets expected to need review are flagged (HITL recall = 1.0 on the test set).
+- [ ] 100% of tickets expected to need review are flagged (HITL recall = 1.0 on the test set), and human-review precision is tracked alongside it so escalations stay both complete and correct.
 - [ ] The model comparison table covers all 3 models: accuracy, p50 latency, cost per ticket, cost per 10k tickets.
 - [ ] The failure paths (invalid JSON, timeout, 429, all models down) are covered by unit tests and all pass.
 - [ ] At least 3 prompt versions are committed, and `docs/prompt-evolution.md` explains the changes.

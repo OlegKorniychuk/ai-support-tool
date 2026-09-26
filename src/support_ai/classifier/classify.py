@@ -57,7 +57,7 @@ def _wrap_ticket(ticket: str) -> str:
 def _fallback_result(attempts: list[Attempt] | None = None) -> ClassifyResult:
     """The SPEC.md fallback result (Failure Handling, X3): always flagged for review."""
     fallback_llm = LLMClassification(
-        category=Category.OTHER,
+        category=Category.UNCLEAR,
         secondary_categories=[],
         priority=Priority.P3,
         next_step=NextStep.REQUEST_MORE_INFO,
@@ -65,7 +65,8 @@ def _fallback_result(attempts: list[Attempt] | None = None) -> ClassifyResult:
         language="unknown",
         tone="unknown",
         confidence=0.0,
-        rationale="Classification failed, or the ticket text was empty.",
+        requests_human=False,
+        rationale="Classification failed.",
     )
     classification = apply_rules(fallback_llm, failed=True)
     return ClassifyResult(
@@ -75,6 +76,36 @@ def _fallback_result(attempts: list[Attempt] | None = None) -> ClassifyResult:
         cost_usd=0.0,
         usage=Usage(input_tokens=0, output_tokens=0),
         attempts=attempts or [],
+    )
+
+
+def _unclear_result() -> ClassifyResult:
+    """Deterministic result for empty or whitespace-only input.
+
+    No LLM call is made, and this is never flagged for review: an empty ticket is
+    expected, everyday input, not a classification failure (SPEC.md's `unclear` /
+    `request_more_info` path).
+    """
+    unclear_llm = LLMClassification(
+        category=Category.UNCLEAR,
+        secondary_categories=[],
+        priority=Priority.P4,
+        next_step=NextStep.REQUEST_MORE_INFO,
+        next_step_note="The ticket text was empty; ask the customer for details.",
+        language="unknown",
+        tone="unknown",
+        confidence=1.0,
+        requests_human=False,
+        rationale="The ticket text was empty or whitespace-only.",
+    )
+    classification = apply_rules(unclear_llm)
+    return ClassifyResult(
+        classification=classification,
+        model_used="none",
+        latency_ms=0,
+        cost_usd=0.0,
+        usage=Usage(input_tokens=0, output_tokens=0),
+        attempts=[],
     )
 
 
@@ -91,7 +122,7 @@ def classify(
     tests so retries don't slow down the suite.
     """
     if not ticket or not ticket.strip():
-        return _fallback_result()
+        return _unclear_result()
 
     system = render_prompt(prompt_version)
     user = _wrap_ticket(ticket)

@@ -25,6 +25,7 @@ VALID_KWARGS = {
     "language": "en",
     "tone": "neutral",
     "confidence": 0.9,
+    "requests_human": False,
     "rationale": "why",
 }
 
@@ -47,11 +48,13 @@ def _call(provider: OpenAIProvider):
     )
 
 
-def _fake_success_response():
+def _fake_success_response(input_tokens_details=None):
     parsed = LLMClassification.model_validate(VALID_KWARGS)
     return SimpleNamespace(
         output_parsed=parsed,
-        usage=SimpleNamespace(input_tokens=42, output_tokens=17),
+        usage=SimpleNamespace(
+            input_tokens=42, output_tokens=17, input_tokens_details=input_tokens_details
+        ),
         model="gpt-5.4-nano",
     )
 
@@ -65,6 +68,7 @@ def test_complete_structured_success(mocker):
     assert result.data["category"] == "refund_request"
     assert result.usage.input_tokens == 42
     assert result.usage.output_tokens == 17
+    assert result.usage.cached_input_tokens == 0
     assert result.model == "gpt-5.4-nano"
     assert result.latency_ms >= 0
 
@@ -141,3 +145,19 @@ def test_complete_structured_maps_other_api_error_to_provider_error(mocker):
     )
     with pytest.raises(LLMProviderError):
         _call(provider)
+
+
+def test_complete_structured_maps_cached_tokens(mocker):
+    provider = _provider()
+    response = _fake_success_response(input_tokens_details=SimpleNamespace(cached_tokens=30))
+    mocker.patch.object(provider._client.responses, "parse", return_value=response)
+
+    assert _call(provider).usage.cached_input_tokens == 30
+
+
+def test_complete_structured_null_cached_tokens_default_to_zero(mocker):
+    provider = _provider()
+    response = _fake_success_response(input_tokens_details=SimpleNamespace(cached_tokens=None))
+    mocker.patch.object(provider._client.responses, "parse", return_value=response)
+
+    assert _call(provider).usage.cached_input_tokens == 0

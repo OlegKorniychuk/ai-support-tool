@@ -1,7 +1,9 @@
 from support_ai.eval.metrics import (
     EvalRecord,
+    cache_hit_rate,
     category_accuracy,
     cost_per_ticket,
+    human_review_precision,
     human_review_recall,
     latency_p50,
     latency_p95,
@@ -32,7 +34,7 @@ def test_category_accuracy_all_correct():
 
 
 def test_category_accuracy_partial():
-    records = [_record(), _record(ticket_id="t2", actual_category="other")]
+    records = [_record(), _record(ticket_id="t2", actual_category="unclear")]
     assert category_accuracy(records) == 0.5
 
 
@@ -68,6 +70,29 @@ def test_human_review_recall_full_marks():
     assert human_review_recall(records) == 1.0
 
 
+def test_human_review_precision_counts_only_flagged_tickets():
+    records = [
+        _record(ticket_id="t1", expected_needs_review=True, actual_needs_review=True),
+        _record(ticket_id="t2", expected_needs_review=False, actual_needs_review=True),
+        _record(ticket_id="t3", expected_needs_review=False, actual_needs_review=False),
+    ]
+    # 1 of 2 flagged tickets actually needed review; t3 isn't flagged so doesn't count
+    assert human_review_precision(records) == 0.5
+
+
+def test_human_review_precision_with_no_flagged_tickets_is_perfect():
+    records = [_record(expected_needs_review=False, actual_needs_review=False)]
+    assert human_review_precision(records) == 1.0
+
+
+def test_human_review_precision_full_marks():
+    records = [
+        _record(ticket_id="t1", expected_needs_review=True, actual_needs_review=True),
+        _record(ticket_id="t2", expected_needs_review=True, actual_needs_review=True),
+    ]
+    assert human_review_precision(records) == 1.0
+
+
 def test_latency_percentiles_on_handmade_records():
     latencies = [100, 200, 300, 400]
     records = [_record(ticket_id=str(i), latency_ms=ms) for i, ms in enumerate(latencies)]
@@ -88,3 +113,16 @@ def test_cost_per_ticket_averages():
 
 def test_cost_per_ticket_empty_records_is_zero():
     assert cost_per_ticket([]) == 0.0
+
+
+def test_cache_hit_rate_is_cached_share_of_all_input_tokens():
+    records = [
+        _record(input_tokens=1000, cached_input_tokens=800),
+        _record(input_tokens=1000, cached_input_tokens=0),
+    ]
+    assert cache_hit_rate(records) == 0.4
+
+
+def test_cache_hit_rate_with_no_input_tokens_is_zero():
+    assert cache_hit_rate([_record(input_tokens=0)]) == 0.0
+    assert cache_hit_rate([]) == 0.0

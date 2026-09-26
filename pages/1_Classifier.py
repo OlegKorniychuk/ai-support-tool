@@ -69,3 +69,8 @@ else:
     meta_col1.caption(f"Model: {result.model_used}")
     meta_col2.caption(f"Latency: {result.latency_ms} ms")
     meta_col3.caption(f"Cost: ${result.cost_usd:.5f}")
+    usage = result.usage
+    st.caption(
+        f"Tokens: {usage.input_tokens} in ({usage.cached_input_tokens} cached) / "
+        f"{usage.output_tokens} out"
+    )

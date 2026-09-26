@@ -1,2 +1,4 @@
-timestamp,model,prompt_version,n_tickets,category_accuracy,priority_accuracy,human_review_recall,latency_p50_ms,latency_p95_ms,cost_per_ticket_usd,cost_per_10k_tickets_usd
+timestamp,model,prompt_version,n_tickets,category_accuracy,priority_accuracy,human_review_recall,latency_p50_ms,latency_p95_ms,cost_per_ticket_usd,cost_per_10k_tickets_usd,human_review_precision
 20260926T130747Z,gpt-5.4-nano,v1,3,1.0,1.0,1.0,1520,2321,0.000356,3.56
+20260926T141413Z,gpt-5.4-nano,v1,18,0.9444,0.7222,1.0,1423,3354,0.000335,3.35
+20260926T153745Z,gpt-5.4-nano,v2,23,0.9565,0.8696,1.0,1469,3679,0.000479,4.79,1.0

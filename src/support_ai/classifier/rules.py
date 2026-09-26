@@ -4,40 +4,48 @@ The LLM never decides `needs_human_review` — this module does, purely from the
 other output fields plus whether the call ultimately failed. See SPEC.md, D1.7.
 """
 
-from support_ai.classifier.schema import Classification, LLMClassification, Priority
-from support_ai.core.config import HITL_CONFIDENCE_THRESHOLD
+from support_ai.classifier.schema import (
+    Category,
+    Classification,
+    LLMClassification,
+    NextStep,
+    Priority,
+)
 
-# Categories that always warrant a human look, regardless of confidence.
-REVIEW_CATEGORIES = frozenset({"refund_request", "expert_complaint"})
+# Categories whose next step is fixed by policy, regardless of what the LLM picked.
+CATEGORY_NEXT_STEP: dict[Category, NextStep] = {
+    Category.USAGE_HELP: NextStep.SEND_KB_ARTICLE,
+    Category.UNCLEAR: NextStep.REQUEST_MORE_INFO,
+}
 
 
-def apply_rules(
-    classification: LLMClassification,
-    *,
-    failed: bool = False,
-    confidence_threshold: float = HITL_CONFIDENCE_THRESHOLD,
-) -> Classification:
+def apply_rules(classification: LLMClassification, *, failed: bool = False) -> Classification:
     """Decide `needs_human_review` and `review_reasons` from `classification` and `failed`.
 
-    A ticket is flagged if any of these holds: low confidence, a refund or expert
-    complaint category, P1 priority, two or more topics (secondary categories present),
-    or the classification pipeline itself failed and returned a fallback result.
+    A ticket is flagged only if one of these holds: P1 priority, the customer explicitly
+    requested a live human agent (`requests_human`), or the classification pipeline
+    itself failed and returned a fallback result. `confidence` and `secondary_categories`
+    remain informational only — they no longer affect the flag.
+
+    Independently of the flag, `next_step` is forced to match `CATEGORY_NEXT_STEP` for
+    `usage_help` and `unclear`, so those two categories always route the same way no
+    matter what the LLM returned for `next_step`.
     """
     reasons: list[str] = []
 
-    if classification.confidence < confidence_threshold:
-        reasons.append("low_confidence")
-    if classification.category in REVIEW_CATEGORIES:
-        reasons.append(str(classification.category))
     if classification.priority is Priority.P1:
         reasons.append("p1_priority")
-    if len(classification.secondary_categories) >= 1:
-        reasons.append("mixed_topics")
+    if classification.requests_human:
+        reasons.append("human_requested")
     if failed:
         reasons.append("classification_failed")
 
+    data = classification.model_dump()
+    if classification.category in CATEGORY_NEXT_STEP:
+        data["next_step"] = CATEGORY_NEXT_STEP[classification.category]
+
     return Classification(
-        **classification.model_dump(),
+        **data,
         needs_human_review=bool(reasons),
         review_reasons=reasons,
     )

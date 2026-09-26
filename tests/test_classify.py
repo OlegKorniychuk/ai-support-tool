@@ -20,6 +20,7 @@ VALID_DATA = {
     "language": "en",
     "tone": "neutral",
     "confidence": 0.9,
+    "requests_human": False,
     "rationale": "Explicit refund ask.",
 }
 
@@ -46,7 +47,7 @@ def test_classify_normal_path(monkeypatch):
     result = classify("I want a refund", model_chain=chain)
 
     assert result.classification.category.value == "refund_request"
-    assert result.classification.needs_human_review is True  # refund_request always flags
+    assert result.classification.needs_human_review is False  # P2, no human request, not P1
     assert result.model_used == chain[0]
     assert result.usage.input_tokens == 100
     assert result.usage.output_tokens == 50
@@ -62,7 +63,7 @@ def test_classify_fallback_path_on_all_models_failed(monkeypatch):
 
     result = classify("Some ticket text", model_chain=chain, sleep=lambda _seconds: None)
 
-    assert result.classification.category.value == "other"
+    assert result.classification.category.value == "unclear"
     assert result.classification.priority.value == "P3"
     assert result.classification.needs_human_review is True
     assert "classification_failed" in result.classification.review_reasons
@@ -74,11 +75,27 @@ def test_classify_fallback_path_on_all_models_failed(monkeypatch):
 def test_classify_empty_ticket_path(ticket_text):
     result = classify(ticket_text)
 
-    assert result.classification.category.value == "other"
-    assert result.classification.needs_human_review is True
-    assert "classification_failed" in result.classification.review_reasons
+    assert result.classification.category.value == "unclear"
+    assert result.classification.priority.value == "P4"
+    assert result.classification.next_step.value == "request_more_info"
+    assert result.classification.needs_human_review is False
+    assert result.classification.review_reasons == []
     assert result.model_used == "none"
     assert result.cost_usd == 0.0
+
+
+def test_classify_empty_ticket_makes_no_provider_call(monkeypatch):
+    # An empty ticket must short-circuit before the model chain / provider is ever
+    # touched. A FakeProvider with zero scripted responses proves this: any attempted
+    # call would raise "ran out of scripted responses".
+    fake = FakeProvider(responses=[])
+    chain = _fake_chain(fake, monkeypatch)
+
+    result = classify("   ", model_chain=chain)
+
+    assert result.classification.category.value == "unclear"
+    assert result.classification.needs_human_review is False
+    assert fake.calls == []
 
 
 def test_classify_never_raises_when_api_key_missing(monkeypatch):

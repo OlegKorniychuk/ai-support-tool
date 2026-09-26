@@ -21,6 +21,7 @@ class EvalRecord(BaseModel):
     latency_ms: int
     input_tokens: int
     output_tokens: int
+    cached_input_tokens: int = 0
     cost_usd: float
     error: str | None = None
 
@@ -60,6 +61,21 @@ def human_review_recall(records: list[EvalRecord]) -> float:
     return sum(r.actual_needs_review for r in expected_review) / len(expected_review)
 
 
+def human_review_precision(records: list[EvalRecord]) -> float:
+    """Of the tickets actually flagged for review, the fraction that were expected to be.
+
+    Recall's complement: recall asks whether the reviews we need happen; precision asks
+    whether the reviews we trigger are ones we actually needed, so false-positive
+    escalations count against it. Tickets that aren't flagged are excluded from the
+    denominator. A ticket set with no flagged tickets has perfect (1.0) precision — there
+    are no false escalations to find.
+    """
+    flagged = [r for r in records if r.actual_needs_review]
+    if not flagged:
+        return 1.0
+    return sum(r.expected_needs_review for r in flagged) / len(flagged)
+
+
 def _percentile(values: list[float], pct: float) -> float:
     """Nearest-rank percentile. `pct` is a fraction in [0, 1]."""
     if not values:
@@ -75,6 +91,14 @@ def latency_p50(records: list[EvalRecord]) -> float:
 
 def latency_p95(records: list[EvalRecord]) -> float:
     return _percentile([r.latency_ms for r in records], 0.95)
+
+
+def cache_hit_rate(records: list[EvalRecord]) -> float:
+    """Fraction of all input tokens that were served from the provider's prompt cache."""
+    total_input = sum(r.input_tokens for r in records)
+    if not total_input:
+        return 0.0
+    return sum(r.cached_input_tokens for r in records) / total_input
 
 
 def cost_per_ticket(records: list[EvalRecord]) -> float:

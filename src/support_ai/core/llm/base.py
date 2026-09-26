@@ -15,6 +15,8 @@ from pydantic import BaseModel
 class Usage(BaseModel):
     input_tokens: int
     output_tokens: int
+    # Subset of `input_tokens` served from the provider's prompt cache (billed at a discount).
+    cached_input_tokens: int = 0
 
 
 class LLMResult(BaseModel):

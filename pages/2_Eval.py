@@ -64,13 +64,22 @@ else:
     human_review_recall = (
         expected_review["actual_needs_review"].mean() if len(expected_review) else 1.0
     )
+    flagged = detail_df[detail_df["actual_needs_review"]]
+    human_review_precision = flagged["expected_needs_review"].mean() if len(flagged) else 1.0
     cost_per_ticket = detail_df["cost_usd"].mean()
+    # older runs predate cached-token tracking
+    if "cached_input_tokens" not in detail_df.columns:
+        detail_df["cached_input_tokens"] = 0
+    total_input = detail_df["input_tokens"].sum()
+    cache_hit_rate = detail_df["cached_input_tokens"].sum() / total_input if total_input else 0.0
 
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     col1.metric("Category accuracy", f"{category_accuracy:.0%}")
     col2.metric("Priority accuracy", f"{priority_accuracy:.0%}")
     col3.metric("Human-review recall", f"{human_review_recall:.0%}")
-    col4.metric("Cost / 10k tickets", f"${forecast(cost_per_ticket, 10_000):.2f}")
+    col4.metric("Human-review precision", f"{human_review_precision:.0%}")
+    col5.metric("Cost / 10k tickets", f"${forecast(cost_per_ticket, 10_000):.2f}")
+    st.caption(f"Prompt cache hit rate: {cache_hit_rate:.0%} of input tokens")
 
     st.subheader(f"Per-ticket results — {selected_label}")
 
@@ -94,6 +103,9 @@ else:
             "expected_needs_review",
             "actual_needs_review",
             "latency_ms",
+            "input_tokens",
+            "cached_input_tokens",
+            "output_tokens",
             "cost_usd",
             "error",
         ]

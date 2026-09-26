@@ -2,7 +2,7 @@ from support_ai.classifier.dataset import load_tickets
 from support_ai.classifier.schema import Category
 
 MIN_TICKETS = 15
-MAX_TICKETS = 20
+MAX_TICKETS = 25
 
 
 def test_loader_parses_all_tickets():
@@ -51,3 +51,21 @@ def test_has_a_prompt_injection_ticket():
 def test_has_a_legal_or_chargeback_threat_ticket():
     cases = load_tickets()
     assert any("legal_threat" in c.tags for c in cases)
+
+
+def test_has_usage_help_tickets_in_more_than_one_language():
+    cases = load_tickets()
+    usage_help = [c for c in cases if "usage_help" in c.tags]
+    assert len(usage_help) >= 2
+    non_english = [c for c in usage_help if "non_english" in c.tags]
+    assert non_english, "at least one usage_help ticket should be non-English"
+
+
+def test_has_a_human_request_ticket():
+    cases = load_tickets()
+    assert any("human_request" in c.tags for c in cases)
+
+
+def test_has_an_expert_request_that_is_not_a_human_request():
+    cases = load_tickets()
+    assert any("expert_request_not_human" in c.tags for c in cases)

@@ -7,7 +7,7 @@
 
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Category(StrEnum):
@@ -17,7 +17,8 @@ class Category(StrEnum):
     EXPERT_COMPLAINT = "expert_complaint"
     ACCOUNT_ACCESS = "account_access"
     FEATURE_REQUEST = "feature_request"
-    OTHER = "other"
+    USAGE_HELP = "usage_help"
+    UNCLEAR = "unclear"
 
 
 class Priority(StrEnum):
@@ -39,7 +40,13 @@ class NextStep(StrEnum):
 
 
 class LLMClassification(BaseModel):
-    """The fields the LLM is asked to fill. Excludes the human-review decision."""
+    """The fields the LLM is asked to fill. Excludes the human-review decision.
+
+    `extra="forbid"` makes an unexpected extra key a validation error, so the gateway's
+    repair retry (gateway.py) kicks in instead of the extra key silently passing through.
+    """
+
+    model_config = ConfigDict(extra="forbid")
 
     category: Category
     secondary_categories: list[Category] = []
@@ -49,6 +56,13 @@ class LLMClassification(BaseModel):
     language: str
     tone: str
     confidence: float = Field(ge=0, le=1)
+    requests_human: bool = Field(
+        description=(
+            "True only if the customer explicitly asks for a live support person, "
+            "human agent or manager instead of a bot. Deterministic code, not the "
+            "LLM, decides whether that flags the ticket for review (see rules.py)."
+        )
+    )
     rationale: str
 
 

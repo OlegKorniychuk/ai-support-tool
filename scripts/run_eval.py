@@ -19,8 +19,10 @@ from support_ai.core.config import MODEL_REGISTRY
 from support_ai.core.cost import forecast
 from support_ai.eval.metrics import (
     EvalRecord,
+    cache_hit_rate,
     category_accuracy,
     cost_per_ticket,
+    human_review_precision,
     human_review_recall,
     latency_p50,
     latency_p95,
@@ -28,6 +30,8 @@ from support_ai.eval.metrics import (
 )
 
 RESULTS_DIR = Path(__file__).resolve().parents[1] / "results"
+# New columns (`human_review_precision`, `cache_hit_rate`) are appended at the end rather
+# than next to related ones: see `_upgrade_summary_header` for why the position matters.
 SUMMARY_COLUMNS = [
     "timestamp",
     "model",
@@ -40,6 +44,8 @@ SUMMARY_COLUMNS = [
     "latency_p95_ms",
     "cost_per_ticket_usd",
     "cost_per_10k_tickets_usd",
+    "human_review_precision",
+    "cache_hit_rate",
 ]
 
 
@@ -56,6 +62,7 @@ def _to_eval_record(ticket: TicketCase, result) -> EvalRecord:
         latency_ms=result.latency_ms,
         input_tokens=result.usage.input_tokens,
         output_tokens=result.usage.output_tokens,
+        cached_input_tokens=result.usage.cached_input_tokens,
         cost_usd=result.cost_usd,
         error="classification_failed" if result.model_used == "none" else None,
     )
@@ -75,10 +82,36 @@ def _write_json(records: list[EvalRecord], path: Path) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False))
 
 
+def _upgrade_summary_header(summary_path: Path) -> None:
+    """Widen an older summary.csv's header to `SUMMARY_COLUMNS`, in place if needed.
+
+    New columns are always appended at the *end* of `SUMMARY_COLUMNS`, so older rows
+    (which don't have them) still parse correctly: pandas pads missing trailing fields
+    with NaN rather than misaligning the row. This only ever rewrites the header line —
+    every existing data row is left byte-for-byte untouched, per CLAUDE.md/SPEC.md's
+    "never... rewrite... eval results".
+    """
+    if not summary_path.exists():
+        return
+    lines = summary_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    if not lines:
+        return
+    current_header = next(csv.reader([lines[0]]))
+    if current_header == SUMMARY_COLUMNS:
+        return
+    if not set(current_header).issubset(SUMMARY_COLUMNS):
+        raise ValueError(
+            f"{summary_path} has an unrecognized header {current_header}; refusing to touch it"
+        )
+    lines[0] = ",".join(SUMMARY_COLUMNS) + "\n"
+    summary_path.write_text("".join(lines), encoding="utf-8")
+
+
 def _append_summary_row(
     model: str, prompt_version: str, timestamp: str, records: list[EvalRecord]
 ) -> None:
     summary_path = RESULTS_DIR / "summary.csv"
+    _upgrade_summary_header(summary_path)
     is_new_file = not summary_path.exists()
     per_ticket_cost = cost_per_ticket(records)
     row = {
@@ -93,6 +126,8 @@ def _append_summary_row(
         "latency_p95_ms": round(latency_p95(records), 1),
         "cost_per_ticket_usd": round(per_ticket_cost, 6),
         "cost_per_10k_tickets_usd": round(forecast(per_ticket_cost, 10_000), 2),
+        "human_review_precision": round(human_review_precision(records), 4),
+        "cache_hit_rate": round(cache_hit_rate(records), 4),
     }
     with summary_path.open("a", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=SUMMARY_COLUMNS)

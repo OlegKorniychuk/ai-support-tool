@@ -1,3 +1,5 @@
+import pytest
+
 from support_ai.core.config import MODEL_REGISTRY
 from support_ai.core.cost import cost_for_usage, forecast
 from support_ai.core.llm.base import Usage
@@ -43,3 +45,30 @@ def test_forecast_zero_tickets_is_free():
 
 def test_forecast_zero_cost_per_ticket():
     assert forecast(0.0, 10_000) == 0.0
+
+
+def test_cost_for_usage_prices_cached_tokens_at_cached_rate():
+    model_config = MODEL_REGISTRY["gpt-5.4-nano"]
+    usage = Usage(input_tokens=1000, cached_input_tokens=800, output_tokens=100)
+    expected = (
+        200 / 1_000_000 * model_config.input_price_per_1m
+        + 800 / 1_000_000 * model_config.cached_input_price_per_1m
+        + 100 / 1_000_000 * model_config.output_price_per_1m
+    )
+    assert cost_for_usage(usage, model_config) == pytest.approx(expected)
+
+
+def test_cost_for_usage_cached_tokens_make_a_call_cheaper():
+    model_config = MODEL_REGISTRY["gpt-5.4-nano"]
+    uncached = Usage(input_tokens=1000, output_tokens=100)
+    cached = Usage(input_tokens=1000, cached_input_tokens=1000, output_tokens=100)
+    assert cost_for_usage(cached, model_config) < cost_for_usage(uncached, model_config)
+
+
+def test_cost_for_usage_without_cached_price_charges_full_input_rate():
+    model_config = MODEL_REGISTRY["gpt-5.4-nano"].model_copy(
+        update={"cached_input_price_per_1m": None}
+    )
+    cached = Usage(input_tokens=1000, cached_input_tokens=1000, output_tokens=0)
+    uncached = Usage(input_tokens=1000, output_tokens=0)
+    assert cost_for_usage(cached, model_config) == cost_for_usage(uncached, model_config)
