@@ -1,0 +1,35 @@
+[project]
+name = "support-ai"
+version = "0.1.0"
+description = "AI ticket classifier prototype (MVP 1)"
+authors = [
+    { name = "OlegKorniychuk", email = "kornoleg576@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "openai>=3.19.2",
+    "pandas>=3.0.6",
+    "pydantic>=2.13.5",
+    "python-dotenv>=1.2.3",
+    "streamlit>=1.64.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.19,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-mock>=3.15.1",
+    "ruff>=0.16.9",
+]

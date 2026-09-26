@@ -117,14 +117,19 @@ pages/
 src/support_ai/
   core/                       → shared with MVP 2
     config.py                 → settings, model registry (id, price per 1M tokens)
-    llm.py                    → OpenAI client: timeout, retry, fallback chain, structured output
     cost.py                   → token usage → $ per call, forecasts
-    cache.py                  → result cache keyed by hash(text, prompt_version, model)
+    llm/
+      base.py                 → LLMProvider protocol, LLMResult, Usage
+      errors.py               → normalized error hierarchy
+      gateway.py              → retry, repair-retry and model fallback (provider-agnostic)
+      openai_provider.py      → the only module that imports `openai`
   classifier/
     schema.py                 → pydantic models + enums
     prompts/v1.md … vN.md     → versioned prompts (kept to document their evolution)
     classify.py               → build prompt → call LLM → validate → apply rules
     rules.py                  → deterministic HITL rules
+  eval/
+    metrics.py                → pure accuracy/latency/cost metric functions
 scripts/run_eval.py           → runs the test set, writes results/
 data/tickets.jsonl            → 15–20 synthetic tickets with expected category, priority, needs_review
 results/                      → eval runs (<model>_<prompt>_<date>.json + summary.csv), committed
@@ -175,10 +180,12 @@ def classify(ticket: str, *, model: str, prompt_version: str = DEFAULT_PROMPT) -
 
 ## Caching (X5)
 
-- Results are cached with key `sha256(normalized_text + prompt_version + model)`, using `st.cache_data` in the UI and a disk JSON cache for eval reruns.
-- The cache is invalidated when the prompt version or model changes, because both are part of the key.
-- The static system prompt comes first in the request so that provider-side prompt caching can apply.
-- The docs argue where caching matters (duplicate tickets, eval reruns) and where it doesn't (most real tickets are unique).
+No app-level cache is built. Ticket texts are almost always unique free text, so an exact-match
+cache would rarely hit. A semantic (similarity-based) cache could catch near-duplicates, but risks
+serving a wrong label for a ticket that only looks similar to a cached one, for a small saving
+given real-world ticket volume and variety. That risk-to-benefit ratio is not worth the added
+code. The static system prompt is still sent first in each request so that OpenAI's provider-side
+prompt caching can apply automatically; this needs no application code.
 
 ## Testing Strategy
 
@@ -186,7 +193,6 @@ def classify(ticket: str, *, model: str, prompt_version: str = DEFAULT_PROMPT) -
   - schema validation
   - `rules.py`, with a table-driven test for each HITL rule
   - `cost.py` math
-  - cache key and invalidation
   - `llm.py` retry and fallback logic, using a mocked client that simulates invalid JSON, timeouts and 429s
 - **Eval (LLM, run manually, not in pytest):**
   - `scripts/run_eval.py` over `data/tickets.jsonl`

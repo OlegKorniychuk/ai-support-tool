@@ -1,0 +1,44 @@
+[
+  {
+    "ticket_id": "t01",
+    "expected_category": "billing_subscription",
+    "actual_category": "billing_subscription",
+    "expected_priority": "P3",
+    "actual_priority": "P3",
+    "expected_needs_review": false,
+    "actual_needs_review": false,
+    "latency_ms": 2321,
+    "input_tokens": 1077,
+    "output_tokens": 95,
+    "cost_usd": 0.00033415000000000007,
+    "error": null
+  },
+  {
+    "ticket_id": "t02",
+    "expected_category": "refund_request",
+    "actual_category": "refund_request",
+    "expected_priority": "P2",
+    "actual_priority": "P2",
+    "expected_needs_review": true,
+    "actual_needs_review": true,
+    "latency_ms": 1227,
+    "input_tokens": 1081,
+    "output_tokens": 102,
+    "cost_usd": 0.0003437,
+    "error": null
+  },
+  {
+    "ticket_id": "t03",
+    "expected_category": "technical_bug",
+    "actual_category": "technical_bug",
+    "expected_priority": "P2",
+    "actual_priority": "P2",
+    "expected_needs_review": false,
+    "actual_needs_review": true,
+    "latency_ms": 1520,
+    "input_tokens": 1090,
+    "output_tokens": 137,
+    "cost_usd": 0.00038925,
+    "error": null
+  }
+]

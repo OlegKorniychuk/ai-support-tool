@@ -1,0 +1,2 @@
+timestamp,model,prompt_version,n_tickets,category_accuracy,priority_accuracy,human_review_recall,latency_p50_ms,latency_p95_ms,cost_per_ticket_usd,cost_per_10k_tickets_usd
+20260926T130747Z,gpt-5.4-nano,v1,3,1.0,1.0,1.0,1520,2321,0.000356,3.56
