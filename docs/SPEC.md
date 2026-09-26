@@ -35,12 +35,12 @@ Nebula support gets thousands of tickets a month, and all of them are routed by 
 - `general_feedback`: general opinions about the app (positive or negative) with nothing specific to fix or answer; always gets a generic reply
 - `unclear`: too short, too vague to act on, or unrelated to Nebula
 
-**Priority:**
+**Priority** (prompt v4+): levels are checked in order, P1 first, and the first matching level wins. A ticket that fits both P1 and P2 is P1.
 
 - `P1`: urgent, positively urgent only. Legal or chargeback threats, safety concerns, payment taken but no access.
 - `P2`: high. A blocking bug, a refund request, an expert complaint.
 - `P3`: normal.
-- `P4`: low. Feature requests, general questions, usage-help and unclear tickets.
+- `P4`: low. Feature requests, general questions, general feedback, usage-help and unclear tickets.
 
 **Next step (enum):** `route_billing`, `route_refunds`, `route_tech_support`, `route_expert_quality`, `route_account_support`, `send_kb_article`, `request_more_info`, `escalate_senior`, `send_generic_reply` (a polite generic reply). Each next step also comes with a one-line free-text note. `usage_help` always maps to `send_kb_article`, `unclear` always maps to `request_more_info` and `general_feedback` always maps to `send_generic_reply` — deterministic code in `rules.py` enforces this mapping after the LLM call, regardless of what the LLM picked.
 

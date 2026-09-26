@@ -41,3 +41,22 @@ def test_v3_response_shape_lists_every_category():
     text = (PROMPTS_DIR / "v3.md").read_text()
     shape = json.loads(RESPONSE_FORMAT_BLOCK.search(text).group("shape"))
     assert all(category.value in shape["category"] for category in Category)
+
+
+def test_v4_response_shape_matches_schema_and_enums():
+    assert _response_shape_keys("v4") == set(LLMClassification.model_fields.keys())
+    text = (PROMPTS_DIR / "v4.md").read_text()
+    shape = json.loads(RESPONSE_FORMAT_BLOCK.search(text).group("shape"))
+    assert all(step.value in shape["next_step"] for step in NextStep)
+    assert all(category.value in shape["category"] for category in Category)
+
+
+def test_v4_priority_is_a_first_match_cascade():
+    text = (PROMPTS_DIR / "v4.md").read_text()
+    assert "stop at the first match" in text
+    assert (
+        text.index("1. `P1`")
+        < text.index("2. `P2`")
+        < text.index("3. `P3`")
+        < text.index("4. `P4`")
+    )
