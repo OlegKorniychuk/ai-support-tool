@@ -47,20 +47,13 @@ else:
             f"**{result.model_used}** instead."
         )
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     col1.metric("Category", classification.category.value)
-    col2.metric("Priority", classification.priority.value)
-    col3.metric("Confidence", f"{classification.confidence:.0%}")
+    col2.metric("Response", classification.next_step.value)
+    col3.metric("Priority", classification.priority.value)
+    col4.metric("Confidence", f"{classification.confidence:.0%}")
 
-    if classification.secondary_categories:
-        st.write(
-            "**Secondary categories:** "
-            + ", ".join(c.value for c in classification.secondary_categories)
-        )
-
-    next_step_line = f"**Next step:** `{classification.next_step.value}` — "
-    next_step_line += classification.next_step_note
-    st.write(next_step_line)
+    st.write(f"**Next step:** {classification.next_step_note}")
     st.write(f"**Language:** {classification.language}  ·  **Tone:** {classification.tone}")
     st.write(f"**Rationale:** {classification.rationale}")
 
