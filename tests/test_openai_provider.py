@@ -19,7 +19,7 @@ from support_ai.core.llm.openai_provider import OpenAIProvider
 VALID_KWARGS = {
     "category": "payment_issue",
     "next_step": "send_refund_policy",
-    "priority": "P3",
+    "priority_raise_evidence": None,
     "next_step_note": "note",
     "language": "en",
     "tone": "neutral",

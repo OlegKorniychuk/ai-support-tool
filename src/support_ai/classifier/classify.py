@@ -16,7 +16,6 @@ from support_ai.classifier.schema import (
     Classification,
     LLMClassification,
     NextStep,
-    Priority,
 )
 from support_ai.core.config import DEFAULT_MODEL_CHAIN, DEFAULT_PROMPT_VERSION, MODEL_REGISTRY
 from support_ai.core.cost import cost_for_usage
@@ -59,14 +58,14 @@ def _fallback_result(attempts: list[Attempt] | None = None) -> ClassifyResult:
     fallback_llm = LLMClassification(
         category=Category.OTHER,
         next_step=NextStep.ESCALATE_HUMAN,
-        priority=Priority.P3,
+        priority_raise_evidence=None,
         next_step_note="Automatic classification failed; a human must review this ticket.",
         language="unknown",
         tone="unknown",
         confidence=0.0,
         rationale="Classification failed.",
     )
-    classification = apply_rules(fallback_llm, failed=True)
+    classification = apply_rules(fallback_llm, ticket="", failed=True)
     return ClassifyResult(
         classification=classification,
         model_used="none",
@@ -87,14 +86,14 @@ def _empty_result() -> ClassifyResult:
     empty_llm = LLMClassification(
         category=Category.OTHER,
         next_step=NextStep.NO_REPLY,
-        priority=Priority.P4,
+        priority_raise_evidence=None,
         next_step_note="The ticket text was empty; no reply is needed.",
         language="unknown",
         tone="unknown",
         confidence=1.0,
         rationale="The ticket text was empty or whitespace-only.",
     )
-    classification = apply_rules(empty_llm)
+    classification = apply_rules(empty_llm, ticket="")
     return ClassifyResult(
         classification=classification,
         model_used="none",
@@ -136,7 +135,7 @@ def classify(
         )
 
     llm_classification = LLMClassification.model_validate(gateway_result.result.data)
-    classification = apply_rules(llm_classification)
+    classification = apply_rules(llm_classification, ticket=ticket)
     model_config = MODEL_REGISTRY[gateway_result.model_used]
     cost_usd = cost_for_usage(gateway_result.result.usage, model_config)
 

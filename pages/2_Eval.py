@@ -115,6 +115,7 @@ else:
             "actual_next_step",
             "expected_priority",
             "actual_priority",
+            "actual_priority_evidence",
             "status",
             "expected_needs_review",
             "actual_needs_review",

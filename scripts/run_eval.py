@@ -62,6 +62,7 @@ def _to_eval_record(ticket: TicketCase, result) -> EvalRecord:
         actual_next_step=classification.next_step.value,
         expected_priority=ticket.expected_priority.value,
         actual_priority=classification.priority.value,
+        actual_priority_evidence=classification.priority_raise_evidence,
         expected_needs_review=ticket.expected_needs_review,
         actual_needs_review=classification.needs_human_review,
         latency_ms=result.latency_ms,

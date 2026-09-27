@@ -18,6 +18,8 @@ class EvalRecord(BaseModel):
     actual_next_step: str
     expected_priority: str
     actual_priority: str
+    # the quote that justified raising priority, if it was raised (prompt v6+)
+    actual_priority_evidence: str | None = None
     expected_needs_review: bool
     actual_needs_review: bool
     latency_ms: int

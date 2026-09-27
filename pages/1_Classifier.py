@@ -53,6 +53,9 @@ else:
     col3.metric("Priority", classification.priority.value)
     col4.metric("Confidence", f"{classification.confidence:.0%}")
 
+    if classification.priority_raise_evidence:
+        st.caption(f"Priority raised because: “{classification.priority_raise_evidence}”")
+
     st.write(f"**Next step:** {classification.next_step_note}")
     st.write(f"**Language:** {classification.language}  ·  **Tone:** {classification.tone}")
     st.write(f"**Rationale:** {classification.rationale}")

@@ -1,8 +1,11 @@
-"""Deterministic post-LLM rules: the priority table and human-in-the-loop flag.
+"""Deterministic post-LLM rules: priority from the table, and the human-in-the-loop flag.
 
-The LLM never decides `needs_human_review` — this module does, purely from the LLM's
-other output fields plus whether the call ultimately failed. See SPEC.md, D1.7.
+The LLM never decides `priority` or `needs_human_review` — this module does, from the
+LLM's other output fields, the ticket text, and whether the call ultimately failed.
+See SPEC.md, D1.7.
 """
+
+import re
 
 from support_ai.classifier.schema import (
     Category,
@@ -12,9 +15,9 @@ from support_ai.classifier.schema import (
     Priority,
 )
 
-# Every valid (category, response) pair, with its base priority and the highest priority
-# a stated fact may raise it to. Mirrors the table in prompts/v5.md; test_prompts.py
-# checks the two never drift apart. A pair missing from here is an invalid classification.
+# Every valid (category, response) pair, with its base priority and the priority a stated
+# fact raises it to. Mirrors the table in the current prompt; test_prompts.py checks the
+# two never drift apart. A pair missing from here is an invalid classification.
 PRIORITY_TABLE: dict[tuple[Category, NextStep], tuple[Priority, Priority]] = {
     (Category.GENERAL_QUESTION, NextStep.SEND_USER_GUIDE): (Priority.P4, Priority.P4),
     (Category.GENERAL_QUESTION, NextStep.SEND_KB_ANSWER): (Priority.P4, Priority.P4),
@@ -34,18 +37,44 @@ PRIORITY_TABLE: dict[tuple[Category, NextStep], tuple[Priority, Priority]] = {
     (Category.OTHER, NextStep.ESCALATE_HUMAN): (Priority.P3, Priority.P3),
 }
 
+# Priority for a (category, next_step) pair the table doesn't know. Such a ticket is also
+# flagged for review, so this only orders it in the queue: same as `other` / escalate.
+INVALID_PAIR_PRIORITY = Priority.P3
 
-def clamp_priority(priority: Priority, base: Priority, highest: Priority) -> Priority:
-    """Bound `priority` to [base, highest]. P1 is the most urgent, so it sorts lowest."""
-    return min(max(priority, highest), base)
+_QUOTE_EDGES = " \t\n\"'“”‘’«»….,;:!?"
 
 
-def apply_rules(classification: LLMClassification, *, failed: bool = False) -> Classification:
-    """Clamp priority to the table and decide `needs_human_review` and `review_reasons`.
+def _normalize(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip().casefold()
 
-    For a valid (category, next_step) pair, the LLM's priority is clamped into the pair's
-    [base, highest] range, so the model can only choose *whether* a raise fact applies,
-    never an arbitrary level. An invalid pair is left as returned and flagged instead.
+
+def evidence_in_ticket(evidence: str, ticket: str) -> bool:
+    """True if `evidence` is a verbatim quote from `ticket`.
+
+    Lenient only about what quoting typically changes: case, runs of whitespace, and
+    surrounding quote marks, ellipses or punctuation. Paraphrases do not match.
+    """
+    quote = _normalize(evidence).strip(_QUOTE_EDGES)
+    return bool(quote) and quote in _normalize(ticket)
+
+
+def compute_priority(category: Category, next_step: NextStep, *, raised: bool) -> Priority:
+    """The pair's raised priority if `raised`, else its base; see `PRIORITY_TABLE`."""
+    bounds = PRIORITY_TABLE.get((category, next_step))
+    if bounds is None:
+        return INVALID_PAIR_PRIORITY
+    base, raised_to = bounds
+    return raised_to if raised else base
+
+
+def apply_rules(
+    classification: LLMClassification, *, ticket: str, failed: bool = False
+) -> Classification:
+    """Compute priority and decide `needs_human_review` and `review_reasons`.
+
+    Priority is raised only when the pair can be raised and the LLM's
+    `priority_raise_evidence` is really a quote from `ticket`. Otherwise the evidence is
+    dropped, so the output shows evidence exactly when the priority was raised.
 
     A ticket is flagged only if one of these holds: the response is `escalate_human`,
     the (category, next_step) pair is not in `PRIORITY_TABLE`, or the classification
@@ -53,21 +82,29 @@ def apply_rules(classification: LLMClassification, *, failed: bool = False) -> C
     only and never affects the flag.
     """
     reasons: list[str] = []
-    data = classification.model_dump()
-
-    bounds = PRIORITY_TABLE.get((classification.category, classification.next_step))
+    pair = (classification.category, classification.next_step)
+    bounds = PRIORITY_TABLE.get(pair)
     if bounds is None:
         reasons.append("invalid_next_step")
-    else:
-        data["priority"] = clamp_priority(classification.priority, *bounds)
+
+    evidence = classification.priority_raise_evidence
+    raised = (
+        bounds is not None
+        and bounds[0] != bounds[1]
+        and evidence is not None
+        and evidence_in_ticket(evidence, ticket)
+    )
 
     if classification.next_step is NextStep.ESCALATE_HUMAN:
         reasons.append("escalate_human")
     if failed:
         reasons.append("classification_failed")
 
+    data = classification.model_dump()
+    data["priority_raise_evidence"] = evidence if raised else None
     return Classification(
         **data,
+        priority=compute_priority(*pair, raised=raised),
         needs_human_review=bool(reasons),
         review_reasons=reasons,
     )

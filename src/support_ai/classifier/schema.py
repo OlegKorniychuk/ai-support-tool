@@ -42,11 +42,12 @@ class NextStep(StrEnum):
 
 
 class LLMClassification(BaseModel):
-    """The fields the LLM is asked to fill. Excludes the human-review decision.
+    """The fields the LLM is asked to fill. Excludes priority and the human-review decision.
 
-    Field order matters: structured output is generated in this order, so the model
-    commits to `category` and `next_step` before `priority`, matching the prompt's
-    "look up the response, then raise if a fact says so" logic.
+    The LLM never picks a priority: it only quotes the ticket's evidence for raising it,
+    and `rules.py` computes the priority from `PRIORITY_TABLE`. Field order matters:
+    structured output is generated in this order, so the model commits to `category` and
+    `next_step` before looking for evidence against that pair's raise condition.
 
     `extra="forbid"` makes an unexpected extra key a validation error, so the gateway's
     repair retry (gateway.py) kicks in instead of the extra key silently passing through.
@@ -56,7 +57,13 @@ class LLMClassification(BaseModel):
 
     category: Category
     next_step: NextStep
-    priority: Priority
+    # Required but nullable (no default), as strict structured output expects.
+    priority_raise_evidence: str | None = Field(
+        description=(
+            "Shortest verbatim quote from the ticket stating a fact from the chosen "
+            "pair's raise condition, or null."
+        )
+    )
     next_step_note: str
     language: str
     tone: str
@@ -65,7 +72,8 @@ class LLMClassification(BaseModel):
 
 
 class Classification(LLMClassification):
-    """The full classification, with the human-review decision applied by `rules.py`."""
+    """The full classification, with priority and human review applied by `rules.py`."""
 
+    priority: Priority
     needs_human_review: bool = False
     review_reasons: list[str] = []

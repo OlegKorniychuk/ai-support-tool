@@ -23,59 +23,62 @@ Nebula support gets thousands of tickets a month, and all of them are routed by 
 
 ### Taxonomy
 
-Current prompt: `v5` (`src/support_ai/classifier/prompts/v5.md`). The v1–v4 taxonomy was replaced from scratch; the v1–v4 prompts stay in `prompts/` as change history but target the old schema and can't be run against the current one.
+Current prompt: `v6` (`src/support_ai/classifier/prompts/v6.md`). v5 replaced the v1–v4 taxonomy from scratch; v6 keeps that taxonomy and moves priority into code. Older prompts stay in `prompts/` as change history but target earlier schemas and can't be run against the current one.
 
 **Category and response.** Each ticket gets exactly one category, then exactly one response (`next_step`) from that category's own list. Within a category, responses are ordered from least to most serious; when several fit, the most serious wins.
 
 | Category | Responses (least → most serious) |
 |---|---|
-| `general_question` — a question about Nebula or how the app works | `send_user_guide` (too vague), `send_kb_answer` (specific question) |
+| `general_question` — a question about Nebula or how the app works | `send_user_guide` (can't say what they want, or how the whole app works), `send_kb_answer` (any question about one specific action) |
 | `quality_complaint` — a complaint about the app or the service | `generic_reply` (vague / general quality), `record_feature_request`, `create_bug_ticket` (specific bug), `escalate_human` (support ignored a specific earlier incident) |
-| `expert_complaint` — a complaint about a Nebula expert | `generic_reply` (no specific expert), `record_expert_complaint` (service quality), `escalate_human` (unacceptable behavior, or a paid session that did not happen) |
-| `payment_issue` — charges, subscriptions, refunds | `generic_reply` (vague, e.g. "too expensive"), `send_refund_policy` (refund demand), `escalate_human` (paid but not received, or a cancellation threat) |
-| `threat` | `generic_reply` (vague threat), `escalate_human` (violence, self-harm, legal action, chargeback or bank dispute) |
+| `expert_complaint` — a complaint about a Nebula expert | `generic_reply` (no specific expert), `record_expert_complaint` (service quality), `escalate_human` (unacceptable behavior incl. asking to pay outside Nebula, or a paid session that did not happen) |
+| `payment_issue` — charges, subscriptions, refunds | `generic_reply` (vague, e.g. "too expensive"), `send_refund_policy` (refund demand), `escalate_human` (paid but not received, a cancellation threat, or charged because of an app bug) |
+| `threat` | `generic_reply` (vague threat, e.g. "you'll regret this" — not violence), `escalate_human` (violence, self-harm, legal action, chargeback or bank dispute) |
 | `other` | `no_reply` (unrelated to Nebula, or too short / too vague to infer meaning), `escalate_human` (Nebula-related but fits no category) |
 
-**Mixed tickets:** pick the category and response with the highest priority; ties go to the category that comes first in `threat`, `payment_issue`, `expert_complaint`, `quality_complaint`, `general_question`, `other`.
+Anything that can't be definitely placed in one of the five named categories goes to `other`.
 
-**Priority** is how fast a person must act, not how upset the customer is. It is not a free judgment: each (category, response) pair has a **base** priority, and the ticket may be raised **one level** only when it explicitly states a listed fact. Tone, caps and "urgent" never raise it.
+**Mixed tickets:** two fixed precedence rules first — a charge caused by an app bug is `payment_issue` / `escalate_human`, and a paid expert session that did not happen is `expert_complaint` / `escalate_human`. Otherwise pick the category and response with the highest priority; ties go to the category that comes first in `threat`, `payment_issue`, `expert_complaint`, `quality_complaint`, `general_question`, `other`.
+
+**Priority** is how fast a person must act, not how upset the customer is. The LLM does **not** set it: each (category, response) pair has a **base** priority, and code raises it **one level** only when the LLM quotes the ticket's statement of a listed fact. Tone, caps, "urgent" and future threats ("I'll sue") never raise it; actions already taken or scheduled do.
 
 | Pair | Base | Raise to | Raise if the ticket states |
 |---|---|---|---|
-| `quality_complaint` / `create_bug_ticket` | P3 | P2 | a core function is fully unusable, data was lost, or the bug charged them |
+| `quality_complaint` / `create_bug_ticket` | P3 | P2 | a core function (only: log in, open the app, book/start an expert session, access paid content) is fully unusable, or data was lost |
 | `quality_complaint` / `escalate_human` | P2 | — | — |
 | `expert_complaint` / `record_expert_complaint` | P3 | — | — |
 | `expert_complaint` / `escalate_human` | P2 | P1 | harassment, sexual content, threats or discrimination by the expert |
 | `payment_issue` / `send_refund_policy` | P3 | P2 | duplicate, after-cancellation or unauthorized charge |
-| `payment_issue` / `escalate_human` | P2 | P1 | paid and has no access at all to what they paid for |
-| `threat` / `escalate_human` | P2 | P1 | violence or self-harm (always), or a concrete legal/financial step (lawyer, filed or dated complaint, chargeback) |
+| `payment_issue` / `escalate_human` | P2 | P1 | paid and has no access at all to anything they paid for (one missing item doesn't count) |
+| `threat` / `escalate_human` | P2 | P1 | violence or self-harm (always), or a legal/financial step already taken or scheduled (lawyer involved, filed or dated complaint, filed chargeback) |
 | `other` / `escalate_human` | P3 | — | — |
 | every other pair | P4 | — | — |
 
-The same table lives in `rules.PRIORITY_TABLE`; `tests/test_prompts.py` parses the prompt's table and fails if the two drift apart. After the LLM call, `rules.py` clamps the returned priority into the pair's [base, raise-to] range, so the model only decides *whether* a raise fact applies.
+The same table lives in `rules.PRIORITY_TABLE`; `tests/test_prompts.py` parses the prompt's table and fails if the two drift apart. The LLM returns `priority_raise_evidence`: the shortest verbatim quote from the ticket (in its original language) that states the chosen pair's raise fact, or `null`. `rules.py` sets the raised priority only if the pair can be raised **and** the quote really appears in the ticket (case, whitespace and surrounding quote marks ignored); otherwise it uses the base and drops the quote. So the output carries evidence exactly when priority was raised. An invalid pair gets P3 (and is flagged).
 
 Each response also comes with a one-line free-text `next_step_note`.
 
 ### Output schema
 
-Validated with pydantic (`LLMClassification` uses `extra="forbid"`, so an unexpected extra key is a validation error, not a silently-dropped one). The shape is enforced through structured output (`responses.parse(text_format=LLMClassification)`), so the prompt carries no JSON block. Field order is deliberate: the model commits to `category` and `next_step` before `priority`.
+Validated with pydantic (`LLMClassification` uses `extra="forbid"`, so an unexpected extra key is a validation error, not a silently-dropped one). The shape is enforced through structured output (`responses.parse(text_format=LLMClassification)`), so the prompt carries no JSON block. Field order is deliberate: the model commits to `category` and `next_step` before looking for evidence against that pair's raise condition.
 
 ```json
 {
   "category": "payment_issue",
   "next_step": "send_refund_policy",
-  "priority": "P2",
+  "priority_raise_evidence": "мене двічі списали кошти",
   "next_step_note": "Send the refund policy; the customer was charged twice.",
   "language": "uk",
   "tone": "aggressive",
   "confidence": 0.82,
   "rationale": "short explanation",
+  "priority": "P2",
   "needs_human_review": false,
   "review_reasons": []
 }
 ```
 
-The LLM fills every field except `needs_human_review` and `review_reasons`. Deterministic code in `rules.py` sets those, so the escalation decision is never delegated to the model (this is the D1.7 decision).
+The LLM fills every field except `priority`, `needs_human_review` and `review_reasons`. Deterministic code in `rules.py` sets those, so neither the priority nor the escalation decision is delegated to the model (this is the D1.7 decision).
 
 ### Human-in-the-loop rules (flag only)
 
@@ -115,7 +118,7 @@ Dev app:     uv run streamlit run streamlit_app.py
 Tests:       uv run pytest -q
 Lint:        uv run ruff check . --fix
 Format:      uv run ruff format .
-Eval (1):    uv run python scripts/run_eval.py --model gpt-5.4-nano --prompt v5
+Eval (1):    uv run python scripts/run_eval.py --model gpt-5.4-nano --prompt v6
 Export deps: uv export --no-hashes > requirements.txt   # for Streamlit Cloud, if needed
 ```
 
@@ -137,9 +140,9 @@ src/support_ai/
       openai_provider.py      → the only module that imports `openai`
   classifier/
     schema.py                 → pydantic models + enums
-    prompts/v1.md … v5.md     → versioned prompts; v5 is current, v1–v4 are change history
+    prompts/v1.md … v6.md     → versioned prompts; v6 is current, older ones are change history
     classify.py               → build prompt → call LLM → validate → apply rules
-    rules.py                  → priority table + clamp, deterministic HITL rules
+    rules.py                  → priority table + evidence check, deterministic HITL rules
   eval/
     metrics.py                → pure accuracy/latency/cost metric functions
 scripts/run_eval.py           → runs the test set, writes results/
@@ -209,8 +212,8 @@ input tokens ÷ all input tokens) per run, and both pages show cached tokens.
 
 - **Unit tests (pytest, no network):**
   - schema validation
-  - `rules.py`: priority clamping for every table pair, and each HITL rule
-  - prompt ↔ code contract: the v5.md priority table equals `rules.PRIORITY_TABLE`
+  - `rules.py`: priority for every table pair, evidence verification, and each HITL rule
+  - prompt ↔ code contract: the current prompt's priority table equals `rules.PRIORITY_TABLE`
   - `cost.py` math, including cached-token pricing
   - `llm.py` retry and fallback logic, using a mocked client that simulates invalid JSON, timeouts and 429s
 - **Eval (LLM, run manually, not in pytest):**

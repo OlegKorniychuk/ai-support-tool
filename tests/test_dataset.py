@@ -1,7 +1,7 @@
 import pytest
 
 from support_ai.classifier.dataset import load_tickets
-from support_ai.classifier.rules import PRIORITY_TABLE, clamp_priority
+from support_ai.classifier.rules import PRIORITY_TABLE
 from support_ai.classifier.schema import NextStep
 
 CASES = load_tickets()
@@ -21,8 +21,8 @@ def test_loader_parses_all_tickets_with_unique_ids():
 def test_every_label_follows_the_priority_table(case):
     bounds = PRIORITY_TABLE.get((case.expected_category, case.expected_next_step))
     assert bounds, f"{case.id}: invalid (category, next_step) pair"
-    assert clamp_priority(case.expected_priority, *bounds) is case.expected_priority, (
-        f"{case.id}: {case.expected_priority} is outside {bounds}"
+    assert case.expected_priority in set(bounds), (
+        f"{case.id}: {case.expected_priority} is neither base nor raised {bounds}"
     )
 
 
@@ -58,6 +58,7 @@ def test_every_raisable_pair_has_a_raised_ticket():
         ("aggressive", 1),
         ("violence", 1),
         ("self_harm", 1),
+        ("chargeback_threat", 1),
     ],
 )
 def test_edge_case_groups_are_present(tag, minimum):

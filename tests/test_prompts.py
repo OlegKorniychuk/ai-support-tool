@@ -1,11 +1,11 @@
-"""Prompt <-> code contract tests for the current prompt (v5).
+"""Prompt <-> code contract tests for the current prompt.
 
 The response shape is enforced by structured output (`LLMClassification`), so the prompt
 carries no JSON block. What must not drift is the priority table: the markdown table in
-v5.md is parsed and compared with `rules.PRIORITY_TABLE`.
+the current prompt is parsed and compared with `rules.PRIORITY_TABLE`.
 
-v1–v4 stay in `prompts/` as change history only; they target the pre-v5 schema and are
-not tested against it.
+Older versions stay in `prompts/` as change history only; they target earlier schemas and
+are not tested against the current one.
 """
 
 import re
@@ -37,8 +37,8 @@ def _parse_priority_table(text: str) -> dict[tuple[Category, NextStep], tuple[Pr
     return table
 
 
-def test_default_prompt_is_v5():
-    assert DEFAULT_PROMPT_VERSION == "v5"
+def test_default_prompt_is_v6():
+    assert DEFAULT_PROMPT_VERSION == "v6"
 
 
 def test_default_prompt_is_the_latest_version():
@@ -56,12 +56,26 @@ def test_prompt_mentions_every_enum_value(value):
 
 
 def test_prompt_mentions_every_free_text_field():
-    for field in ("next_step_note", "language", "tone", "confidence", "rationale"):
+    for field in (
+        "priority_raise_evidence",
+        "next_step_note",
+        "language",
+        "tone",
+        "confidence",
+        "rationale",
+    ):
         assert f"`{field}`" in PROMPT
 
 
 @pytest.mark.parametrize(
-    "forbidden", ["## Response format", "requests_human", "secondary_categories"]
+    "forbidden",
+    [
+        "## Response format",
+        "requests_human",
+        "secondary_categories",
+        "bug caused them to be charged",
+        "Assign priority",
+    ],
 )
 def test_prompt_has_no_v4_leftovers(forbidden):
     assert forbidden not in PROMPT

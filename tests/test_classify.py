@@ -14,7 +14,7 @@ _name_counter = itertools.count()
 VALID_DATA = {
     "category": "payment_issue",
     "next_step": "send_refund_policy",
-    "priority": "P3",
+    "priority_raise_evidence": None,
     "next_step_note": "Send the refund policy.",
     "language": "en",
     "tone": "neutral",
