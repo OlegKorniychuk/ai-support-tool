@@ -1,97 +1,90 @@
+import pytest
+
 from support_ai.classifier.dataset import load_tickets
-from support_ai.classifier.schema import Category
+from support_ai.classifier.rules import PRIORITY_TABLE, clamp_priority
+from support_ai.classifier.schema import NextStep
 
-MIN_TICKETS = 15
-MAX_TICKETS = 30
+CASES = load_tickets()
 
 
-def test_loader_parses_all_tickets():
-    cases = load_tickets()
-    assert MIN_TICKETS <= len(cases) <= MAX_TICKETS
-    ids = [case.id for case in cases]
+def _tagged(tag: str):
+    return [c for c in CASES if tag in c.tags]
+
+
+def test_loader_parses_all_tickets_with_unique_ids():
+    assert len(CASES) >= 40
+    ids = [case.id for case in CASES]
     assert len(ids) == len(set(ids)), "ticket ids must be unique"
 
 
-def test_every_category_is_covered():
-    cases = load_tickets()
-    covered = {case.expected_category for case in cases}
-    assert covered == set(Category)
+@pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
+def test_every_label_follows_the_priority_table(case):
+    bounds = PRIORITY_TABLE.get((case.expected_category, case.expected_next_step))
+    assert bounds, f"{case.id}: invalid (category, next_step) pair"
+    assert clamp_priority(case.expected_priority, *bounds) is case.expected_priority, (
+        f"{case.id}: {case.expected_priority} is outside {bounds}"
+    )
 
 
-def test_at_least_two_aggressive_tickets():
-    cases = load_tickets()
-    aggressive = [c for c in cases if "aggressive" in c.tags]
-    assert len(aggressive) >= 2
+def test_every_category_response_pair_is_covered_at_base_priority():
+    base_labels = {
+        (c.expected_category, c.expected_next_step)
+        for c in _tagged("base")
+        if c.expected_priority is PRIORITY_TABLE[(c.expected_category, c.expected_next_step)][0]
+    }
+    assert base_labels == set(PRIORITY_TABLE)
 
 
-def test_at_least_two_mixed_topic_tickets():
-    cases = load_tickets()
-    mixed = [c for c in cases if "mixed_topics" in c.tags]
-    assert len(mixed) >= 2
+def test_every_raisable_pair_has_a_raised_ticket():
+    raisable = {pair for pair, (base, highest) in PRIORITY_TABLE.items() if base != highest}
+    raised = {
+        (c.expected_category, c.expected_next_step)
+        for c in CASES
+        if c.expected_priority is PRIORITY_TABLE[(c.expected_category, c.expected_next_step)][1]
+        and c.expected_priority
+        is not PRIORITY_TABLE[(c.expected_category, c.expected_next_step)][0]
+    }
+    assert raised == raisable
 
 
-def test_at_least_two_non_english_tickets():
-    cases = load_tickets()
-    non_english = [c for c in cases if "non_english" in c.tags]
-    assert len(non_english) >= 2
-    languages = {tag for c in non_english for tag in c.tags if tag in {"uk", "es", "ru"}}
-    assert len(languages) >= 2, "non-English tickets should cover more than one language"
+@pytest.mark.parametrize(
+    "tag,minimum",
+    [
+        ("multilingual", 2),
+        ("mixed", 2),
+        ("injection", 2),
+        ("too_short", 2),
+        ("human_request", 1),
+        ("aggressive", 1),
+        ("violence", 1),
+        ("self_harm", 1),
+    ],
+)
+def test_edge_case_groups_are_present(tag, minimum):
+    assert len(_tagged(tag)) >= minimum
 
 
-def test_has_an_empty_or_too_short_ticket():
-    cases = load_tickets()
-    assert any("empty" in c.tags or "too_short" in c.tags for c in cases)
+def test_multilingual_tickets_cover_more_than_one_language():
+    languages = {t for c in _tagged("multilingual") for t in c.tags if len(t) == 2}
+    assert {"uk", "es"} <= languages
 
 
-def test_has_a_prompt_injection_ticket():
-    cases = load_tickets()
-    assert any("injection" in c.tags for c in cases)
+def test_too_short_tickets_are_other_no_reply_and_not_reviewed():
+    for case in _tagged("too_short"):
+        assert case.expected_next_step is NextStep.NO_REPLY
+        assert not case.expected_needs_review
 
 
-def test_has_a_legal_or_chargeback_threat_ticket():
-    cases = load_tickets()
-    assert any("legal_threat" in c.tags for c in cases)
-
-
-def test_has_usage_help_tickets_in_more_than_one_language():
-    cases = load_tickets()
-    usage_help = [c for c in cases if "usage_help" in c.tags]
-    assert len(usage_help) >= 2
-    non_english = [c for c in usage_help if "non_english" in c.tags]
-    assert non_english, "at least one usage_help ticket should be non-English"
-
-
-def test_has_a_human_request_ticket():
-    cases = load_tickets()
-    assert any("human_request" in c.tags for c in cases)
-
-
-def test_has_an_expert_request_that_is_not_a_human_request():
-    cases = load_tickets()
-    assert any("expert_request_not_human" in c.tags for c in cases)
-
-
-def test_has_an_unrelated_ticket():
-    cases = load_tickets()
-    assert any("unrelated" in c.tags for c in cases)
-
-
-def test_has_a_pure_injection_ticket_that_must_not_escalate():
-    cases = load_tickets()
-    pure = [c for c in cases if "injection" in c.tags and c.expected_category == "unclear"]
+def test_a_pure_injection_ticket_is_ignored_and_not_reviewed():
+    pure = [c for c in _tagged("injection") if c.expected_next_step is NextStep.NO_REPLY]
     assert pure
     assert all(not c.expected_needs_review for c in pure)
 
 
-def test_has_a_vague_app_quality_complaint():
-    cases = load_tickets()
-    assert any("vague_complaint" in c.tags for c in cases)
+def test_a_human_request_alone_does_not_escalate():
+    assert all(not c.expected_needs_review for c in _tagged("human_request"))
 
 
-def test_has_general_feedback_tickets_positive_and_non_english():
-    cases = load_tickets()
-    feedback = [c for c in cases if c.expected_category == "general_feedback"]
-    assert len(feedback) >= 3
-    assert any("positive" in c.tags for c in feedback)
-    assert any("non_english" in c.tags for c in feedback)
-    assert all(not c.expected_needs_review for c in feedback)
+def test_expected_needs_review_is_derived_from_escalate_human():
+    for case in CASES:
+        assert case.expected_needs_review is (case.expected_next_step is NextStep.ESCALATE_HUMAN)

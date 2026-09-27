@@ -5,7 +5,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from support_ai.classifier.schema import Category, Priority
+from support_ai.classifier.schema import Category, NextStep, Priority
 
 DEFAULT_DATASET_PATH = Path(__file__).resolve().parents[3] / "data" / "tickets.jsonl"
 
@@ -16,9 +16,14 @@ class TicketCase(BaseModel):
     id: str
     text: str
     expected_category: Category
+    expected_next_step: NextStep
     expected_priority: Priority
-    expected_needs_review: bool
     tags: list[str] = []
+
+    @property
+    def expected_needs_review(self) -> bool:
+        """Review is rule-based (rules.py): only `escalate_human` responses are flagged."""
+        return self.expected_next_step is NextStep.ESCALATE_HUMAN
 
 
 def load_tickets(path: Path = DEFAULT_DATASET_PATH) -> list[TicketCase]:

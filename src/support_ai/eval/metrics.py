@@ -14,6 +14,8 @@ class EvalRecord(BaseModel):
     ticket_id: str
     expected_category: str
     actual_category: str
+    expected_next_step: str
+    actual_next_step: str
     expected_priority: str
     actual_priority: str
     expected_needs_review: bool
@@ -30,6 +32,10 @@ class EvalRecord(BaseModel):
         return self.expected_category == self.actual_category
 
     @property
+    def next_step_pass(self) -> bool:
+        return self.expected_next_step == self.actual_next_step
+
+    @property
     def priority_pass(self) -> bool:
         return self.expected_priority == self.actual_priority
 
@@ -39,6 +45,13 @@ def category_accuracy(records: list[EvalRecord]) -> float:
     if not records:
         return 0.0
     return sum(r.category_pass for r in records) / len(records)
+
+
+def next_step_accuracy(records: list[EvalRecord]) -> float:
+    """Fraction of records whose actual response (next step) matches the expected one."""
+    if not records:
+        return 0.0
+    return sum(r.next_step_pass for r in records) / len(records)
 
 
 def priority_accuracy(records: list[EvalRecord]) -> float:

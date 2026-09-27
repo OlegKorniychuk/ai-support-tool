@@ -11,15 +11,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class Category(StrEnum):
-    BILLING_SUBSCRIPTION = "billing_subscription"
-    REFUND_REQUEST = "refund_request"
-    TECHNICAL_BUG = "technical_bug"
+    GENERAL_QUESTION = "general_question"
+    QUALITY_COMPLAINT = "quality_complaint"
     EXPERT_COMPLAINT = "expert_complaint"
-    ACCOUNT_ACCESS = "account_access"
-    FEATURE_REQUEST = "feature_request"
-    USAGE_HELP = "usage_help"
-    GENERAL_FEEDBACK = "general_feedback"
-    UNCLEAR = "unclear"
+    PAYMENT_ISSUE = "payment_issue"
+    THREAT = "threat"
+    OTHER = "other"
 
 
 class Priority(StrEnum):
@@ -30,19 +27,26 @@ class Priority(StrEnum):
 
 
 class NextStep(StrEnum):
-    ROUTE_BILLING = "route_billing"
-    ROUTE_REFUNDS = "route_refunds"
-    ROUTE_TECH_SUPPORT = "route_tech_support"
-    ROUTE_EXPERT_QUALITY = "route_expert_quality"
-    ROUTE_ACCOUNT_SUPPORT = "route_account_support"
-    SEND_KB_ARTICLE = "send_kb_article"
-    REQUEST_MORE_INFO = "request_more_info"
-    ESCALATE_SENIOR = "escalate_senior"
-    SEND_GENERIC_REPLY = "send_generic_reply"
+    """The response to a ticket. Which responses are valid for which category is defined
+    by `rules.PRIORITY_TABLE`, not by this enum."""
+
+    SEND_USER_GUIDE = "send_user_guide"
+    SEND_KB_ANSWER = "send_kb_answer"
+    GENERIC_REPLY = "generic_reply"
+    RECORD_FEATURE_REQUEST = "record_feature_request"
+    CREATE_BUG_TICKET = "create_bug_ticket"
+    RECORD_EXPERT_COMPLAINT = "record_expert_complaint"
+    SEND_REFUND_POLICY = "send_refund_policy"
+    ESCALATE_HUMAN = "escalate_human"
+    NO_REPLY = "no_reply"
 
 
 class LLMClassification(BaseModel):
     """The fields the LLM is asked to fill. Excludes the human-review decision.
+
+    Field order matters: structured output is generated in this order, so the model
+    commits to `category` and `next_step` before `priority`, matching the prompt's
+    "look up the response, then raise if a fact says so" logic.
 
     `extra="forbid"` makes an unexpected extra key a validation error, so the gateway's
     repair retry (gateway.py) kicks in instead of the extra key silently passing through.
@@ -51,20 +55,12 @@ class LLMClassification(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     category: Category
-    secondary_categories: list[Category] = []
-    priority: Priority
     next_step: NextStep
+    priority: Priority
     next_step_note: str
     language: str
     tone: str
     confidence: float = Field(ge=0, le=1)
-    requests_human: bool = Field(
-        description=(
-            "True only if the customer explicitly asks for a live support person, "
-            "human agent or manager instead of a bot. Deterministic code, not the "
-            "LLM, decides whether that flags the ticket for review (see rules.py)."
-        )
-    )
     rationale: str
 
 

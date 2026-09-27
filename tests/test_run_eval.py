@@ -50,8 +50,10 @@ OLD_ROW = [
 def _record(**overrides) -> EvalRecord:
     defaults = {
         "ticket_id": "t1",
-        "expected_category": "unclear",
-        "actual_category": "unclear",
+        "expected_category": "other",
+        "actual_category": "other",
+        "expected_next_step": "no_reply",
+        "actual_next_step": "no_reply",
         "expected_priority": "P4",
         "actual_priority": "P4",
         "expected_needs_review": False,
@@ -93,6 +95,8 @@ def test_append_summary_row_upgrades_old_header_without_touching_old_rows(tmp_pa
     assert df.loc[1, "human_review_precision"] == 1.0
     assert pd.isna(df.loc[0, "cache_hit_rate"])
     assert df.loc[1, "cache_hit_rate"] == 0.0
+    assert pd.isna(df.loc[0, "next_step_accuracy"])
+    assert df.loc[1, "next_step_accuracy"] == 1.0
     # the old row's own columns must be unaffected by the header widening
     assert df.loc[0, "latency_p50_ms"] == 1500.0
     assert df.loc[0, "cost_per_10k_tickets_usd"] == 3.0

@@ -1,19 +1,17 @@
 import pytest
 
-from support_ai.classifier.rules import apply_rules
+from support_ai.classifier.rules import PRIORITY_TABLE, apply_rules
 from support_ai.classifier.schema import Category, LLMClassification, NextStep, Priority
 
 BASE_KWARGS = {
-    "category": Category.TECHNICAL_BUG,
-    "secondary_categories": [],
+    "category": Category.QUALITY_COMPLAINT,
+    "next_step": NextStep.CREATE_BUG_TICKET,
     "priority": Priority.P3,
-    "next_step": NextStep.ROUTE_TECH_SUPPORT,
-    "next_step_note": "Investigate the crash report.",
+    "next_step_note": "Open a bug ticket for the crash.",
     "language": "en",
     "tone": "neutral",
     "confidence": 0.9,
-    "requests_human": False,
-    "rationale": "A clear technical bug report.",
+    "rationale": "A clear bug report.",
 }
 
 
@@ -21,100 +19,115 @@ def _classification(**overrides) -> LLMClassification:
     return LLMClassification.model_validate({**BASE_KWARGS, **overrides})
 
 
-def test_no_rules_firing_leaves_ticket_unflagged():
+def test_priority_table_covers_the_16_v5_pairs():
+    assert len(PRIORITY_TABLE) == 16
+    for base, highest in PRIORITY_TABLE.values():
+        # `highest` is at least as urgent as `base`, and at most one level above it
+        assert highest <= base
+        assert int(base.value[1]) - int(highest.value[1]) <= 1
+
+
+def test_every_category_except_general_question_can_escalate():
+    escalating = {c for c, s in PRIORITY_TABLE if s is NextStep.ESCALATE_HUMAN}
+    assert escalating == set(Category) - {Category.GENERAL_QUESTION}
+
+
+def test_valid_non_escalating_ticket_is_unflagged():
     result = apply_rules(_classification())
     assert result.needs_human_review is False
     assert result.review_reasons == []
 
 
 @pytest.mark.parametrize(
-    "overrides,failed,expected_reason",
+    "llm_priority,expected",
     [
-        ({"priority": Priority.P1}, False, "p1_priority"),
-        ({"requests_human": True}, False, "human_requested"),
-        ({}, True, "classification_failed"),
+        (Priority.P4, Priority.P3),  # below base → base
+        (Priority.P3, Priority.P3),  # base
+        (Priority.P2, Priority.P2),  # raised one level
+        (Priority.P1, Priority.P2),  # above the raise limit → limit
     ],
 )
-def test_each_rule_fires_on_its_own(overrides, failed, expected_reason):
-    result = apply_rules(_classification(**overrides), failed=failed)
+def test_priority_is_clamped_into_the_pair_range(llm_priority, expected):
+    result = apply_rules(_classification(priority=llm_priority))
+    assert result.priority is expected
+
+
+@pytest.mark.parametrize("llm_priority", list(Priority))
+def test_non_raisable_pair_always_gets_its_base(llm_priority):
+    classification = _classification(
+        category=Category.GENERAL_QUESTION,
+        next_step=NextStep.SEND_KB_ANSWER,
+        priority=llm_priority,
+    )
+    assert apply_rules(classification).priority is Priority.P4
+
+
+@pytest.mark.parametrize("pair,bounds", list(PRIORITY_TABLE.items()))
+def test_every_pair_keeps_an_in_range_priority_unchanged(pair, bounds):
+    category, next_step = pair
+    for priority in set(bounds):
+        classification = _classification(category=category, next_step=next_step, priority=priority)
+        assert apply_rules(classification).priority is priority
+
+
+def test_escalate_human_is_flagged():
+    classification = _classification(
+        category=Category.THREAT, next_step=NextStep.ESCALATE_HUMAN, priority=Priority.P1
+    )
+    result = apply_rules(classification)
     assert result.needs_human_review is True
-    assert result.review_reasons == [expected_reason]
+    assert result.review_reasons == ["escalate_human"]
 
 
-def test_multiple_rules_combine():
-    classification = _classification(priority=Priority.P1, requests_human=True)
+def test_p1_alone_adds_no_reason_beyond_escalation():
+    classification = _classification(
+        category=Category.PAYMENT_ISSUE, next_step=NextStep.ESCALATE_HUMAN, priority=Priority.P1
+    )
+    result = apply_rules(classification)
+    assert result.priority is Priority.P1
+    assert result.review_reasons == ["escalate_human"]
+
+
+def test_invalid_pair_is_flagged_and_left_untouched():
+    classification = _classification(
+        category=Category.THREAT, next_step=NextStep.SEND_KB_ANSWER, priority=Priority.P1
+    )
+    result = apply_rules(classification)
+    assert result.needs_human_review is True
+    assert result.review_reasons == ["invalid_next_step"]
+    assert result.next_step is NextStep.SEND_KB_ANSWER
+    assert result.priority is Priority.P1
+
+
+def test_failed_classification_is_flagged():
+    result = apply_rules(_classification(), failed=True)
+    assert result.needs_human_review is True
+    assert result.review_reasons == ["classification_failed"]
+
+
+def test_reasons_combine_in_order():
+    classification = _classification(
+        category=Category.GENERAL_QUESTION, next_step=NextStep.ESCALATE_HUMAN
+    )
     result = apply_rules(classification, failed=True)
-    assert result.needs_human_review is True
-    assert result.review_reasons == ["p1_priority", "human_requested", "classification_failed"]
+    assert result.review_reasons == [
+        "invalid_next_step",
+        "escalate_human",
+        "classification_failed",
+    ]
 
 
-@pytest.mark.parametrize(
-    "overrides",
-    [
-        {"confidence": 0.1},
-        {"confidence": 0.0},
-        {"category": Category.REFUND_REQUEST},
-        {"category": Category.EXPERT_COMPLAINT},
-        {"secondary_categories": [Category.BILLING_SUBSCRIPTION]},
-    ],
-)
-def test_removed_rules_no_longer_fire(overrides):
-    """Low confidence, refund/expert-complaint category and mixed topics used to flag a
-    ticket on their own. None of them do anymore — only P1, requests_human and a failed
-    classification do."""
-    result = apply_rules(_classification(**overrides))
+@pytest.mark.parametrize("confidence", [0.0, 0.1])
+def test_low_confidence_does_not_flag(confidence):
+    result = apply_rules(_classification(confidence=confidence))
     assert result.needs_human_review is False
-    assert result.review_reasons == []
 
 
 def test_apply_rules_preserves_llm_fields():
     classification = _classification()
     result = apply_rules(classification)
     assert result.category is classification.category
-    assert result.priority is classification.priority
+    assert result.next_step is classification.next_step
+    assert result.next_step_note == classification.next_step_note
     assert result.rationale == classification.rationale
-    assert result.requests_human == classification.requests_human
     assert result.confidence == classification.confidence
-    assert result.secondary_categories == classification.secondary_categories
-
-
-@pytest.mark.parametrize(
-    "category,expected_next_step",
-    [
-        (Category.USAGE_HELP, NextStep.SEND_KB_ARTICLE),
-        (Category.UNCLEAR, NextStep.REQUEST_MORE_INFO),
-        (Category.GENERAL_FEEDBACK, NextStep.SEND_GENERIC_REPLY),
-    ],
-)
-def test_next_step_is_enforced_for_mapped_categories(category, expected_next_step):
-    # the LLM picked the "wrong" next step; rules.py must override it regardless
-    classification = _classification(category=category, next_step=NextStep.ROUTE_BILLING)
-    result = apply_rules(classification)
-    assert result.next_step is expected_next_step
-
-
-def test_next_step_is_untouched_for_other_categories():
-    classification = _classification(
-        category=Category.TECHNICAL_BUG, next_step=NextStep.ROUTE_TECH_SUPPORT
-    )
-    result = apply_rules(classification)
-    assert result.next_step is NextStep.ROUTE_TECH_SUPPORT
-
-
-def test_general_feedback_is_not_flagged_for_review():
-    classification = _classification(
-        category=Category.GENERAL_FEEDBACK,
-        priority=Priority.P4,
-        next_step=NextStep.ROUTE_TECH_SUPPORT,
-    )
-    result = apply_rules(classification)
-    assert result.needs_human_review is False
-    assert result.next_step is NextStep.SEND_GENERIC_REPLY
-
-
-def test_general_feedback_with_explicit_human_request_is_still_flagged():
-    classification = _classification(category=Category.GENERAL_FEEDBACK, requests_human=True)
-    result = apply_rules(classification)
-    assert result.needs_human_review is True
-    assert result.review_reasons == ["human_requested"]
-    assert result.next_step is NextStep.SEND_GENERIC_REPLY

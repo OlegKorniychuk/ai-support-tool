@@ -1,62 +1,67 @@
-"""Prompt <-> schema contract test.
+"""Prompt <-> code contract tests for the current prompt (v5).
 
-`prompts/v2.md` ends with a "Response format" section listing the exact JSON shape the
-LLM must return. This test parses that block and checks its keys against
-`LLMClassification.model_fields`, so the prompt and the schema can never silently drift
-apart.
+The response shape is enforced by structured output (`LLMClassification`), so the prompt
+carries no JSON block. What must not drift is the priority table: the markdown table in
+v5.md is parsed and compared with `rules.PRIORITY_TABLE`.
+
+v1–v4 stay in `prompts/` as change history only; they target the pre-v5 schema and are
+not tested against it.
 """
 
-import json
 import re
 
+import pytest
+
 from support_ai.classifier.classify import PROMPTS_DIR
-from support_ai.classifier.schema import Category, LLMClassification, NextStep
+from support_ai.classifier.rules import PRIORITY_TABLE
+from support_ai.classifier.schema import Category, NextStep, Priority
+from support_ai.core.config import DEFAULT_PROMPT_VERSION
 
-RESPONSE_FORMAT_BLOCK = re.compile(r"## Response format.*?```json\n(?P<shape>.*?)\n```", re.DOTALL)
-
-
-def _response_shape_keys(prompt_version: str) -> set[str]:
-    text = (PROMPTS_DIR / f"{prompt_version}.md").read_text()
-    match = RESPONSE_FORMAT_BLOCK.search(text)
-    assert match, f"no '## Response format' fenced JSON block found in {prompt_version}.md"
-    shape = json.loads(match.group("shape"))
-    return set(shape.keys())
-
-
-def test_v2_response_shape_keys_match_llm_classification_fields():
-    assert _response_shape_keys("v2") == set(LLMClassification.model_fields.keys())
+PROMPT = (PROMPTS_DIR / f"{DEFAULT_PROMPT_VERSION}.md").read_text()
+# Tolerates column padding, so a markdown formatter re-aligning the table doesn't break it.
+TABLE_ROW = re.compile(
+    r"^\|\s*`(?P<category>\w+)`\s*\|\s*`(?P<next_step>\w+)`\s*"
+    r"\|\s*(?P<base>P\d)\s*\|\s*(?P<raise>P\d|—)\s*\|"
+)
 
 
-def test_v3_response_shape_keys_match_llm_classification_fields():
-    assert _response_shape_keys("v3") == set(LLMClassification.model_fields.keys())
+def _parse_priority_table(text: str) -> dict[tuple[Category, NextStep], tuple[Priority, Priority]]:
+    table = {}
+    for line in text.splitlines():
+        match = TABLE_ROW.match(line)
+        if not match:
+            continue
+        base = Priority(match["base"])
+        highest = base if match["raise"] == "—" else Priority(match["raise"])
+        table[(Category(match["category"]), NextStep(match["next_step"]))] = (base, highest)
+    return table
 
 
-def test_v3_response_shape_lists_every_next_step():
-    text = (PROMPTS_DIR / "v3.md").read_text()
-    shape = json.loads(RESPONSE_FORMAT_BLOCK.search(text).group("shape"))
-    assert all(step.value in shape["next_step"] for step in NextStep)
+def test_default_prompt_is_v5():
+    assert DEFAULT_PROMPT_VERSION == "v5"
 
 
-def test_v3_response_shape_lists_every_category():
-    text = (PROMPTS_DIR / "v3.md").read_text()
-    shape = json.loads(RESPONSE_FORMAT_BLOCK.search(text).group("shape"))
-    assert all(category.value in shape["category"] for category in Category)
+def test_default_prompt_is_the_latest_version():
+    versions = [int(p.stem.removeprefix("v")) for p in PROMPTS_DIR.glob("v*.md")]
+    assert DEFAULT_PROMPT_VERSION == f"v{max(versions)}"
 
 
-def test_v4_response_shape_matches_schema_and_enums():
-    assert _response_shape_keys("v4") == set(LLMClassification.model_fields.keys())
-    text = (PROMPTS_DIR / "v4.md").read_text()
-    shape = json.loads(RESPONSE_FORMAT_BLOCK.search(text).group("shape"))
-    assert all(step.value in shape["next_step"] for step in NextStep)
-    assert all(category.value in shape["category"] for category in Category)
+def test_prompt_priority_table_matches_rules():
+    assert _parse_priority_table(PROMPT) == PRIORITY_TABLE
 
 
-def test_v4_priority_is_a_first_match_cascade():
-    text = (PROMPTS_DIR / "v4.md").read_text()
-    assert "stop at the first match" in text
-    assert (
-        text.index("1. `P1`")
-        < text.index("2. `P2`")
-        < text.index("3. `P3`")
-        < text.index("4. `P4`")
-    )
+@pytest.mark.parametrize("value", [*Category, *NextStep], ids=str)
+def test_prompt_mentions_every_enum_value(value):
+    assert f"`{value.value}`" in PROMPT
+
+
+def test_prompt_mentions_every_free_text_field():
+    for field in ("next_step_note", "language", "tone", "confidence", "rationale"):
+        assert f"`{field}`" in PROMPT
+
+
+@pytest.mark.parametrize(
+    "forbidden", ["## Response format", "requests_human", "secondary_categories"]
+)
+def test_prompt_has_no_v4_leftovers(forbidden):
+    assert forbidden not in PROMPT

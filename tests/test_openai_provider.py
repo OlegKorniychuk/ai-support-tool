@@ -17,15 +17,13 @@ from support_ai.core.llm.errors import (
 from support_ai.core.llm.openai_provider import OpenAIProvider
 
 VALID_KWARGS = {
-    "category": "refund_request",
-    "secondary_categories": [],
-    "priority": "P2",
-    "next_step": "route_refunds",
+    "category": "payment_issue",
+    "next_step": "send_refund_policy",
+    "priority": "P3",
     "next_step_note": "note",
     "language": "en",
     "tone": "neutral",
     "confidence": 0.9,
-    "requests_human": False,
     "rationale": "why",
 }
 
@@ -65,7 +63,7 @@ def test_complete_structured_success(mocker):
 
     result = _call(provider)
 
-    assert result.data["category"] == "refund_request"
+    assert result.data["category"] == "payment_issue"
     assert result.usage.input_tokens == 42
     assert result.usage.output_tokens == 17
     assert result.usage.cached_input_tokens == 0

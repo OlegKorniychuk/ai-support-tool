@@ -57,15 +57,13 @@ def _wrap_ticket(ticket: str) -> str:
 def _fallback_result(attempts: list[Attempt] | None = None) -> ClassifyResult:
     """The SPEC.md fallback result (Failure Handling, X3): always flagged for review."""
     fallback_llm = LLMClassification(
-        category=Category.UNCLEAR,
-        secondary_categories=[],
+        category=Category.OTHER,
+        next_step=NextStep.ESCALATE_HUMAN,
         priority=Priority.P3,
-        next_step=NextStep.REQUEST_MORE_INFO,
         next_step_note="Automatic classification failed; a human must review this ticket.",
         language="unknown",
         tone="unknown",
         confidence=0.0,
-        requests_human=False,
         rationale="Classification failed.",
     )
     classification = apply_rules(fallback_llm, failed=True)
@@ -79,26 +77,24 @@ def _fallback_result(attempts: list[Attempt] | None = None) -> ClassifyResult:
     )
 
 
-def _unclear_result() -> ClassifyResult:
+def _empty_result() -> ClassifyResult:
     """Deterministic result for empty or whitespace-only input.
 
     No LLM call is made, and this is never flagged for review: an empty ticket is
-    expected, everyday input, not a classification failure (SPEC.md's `unclear` /
-    `request_more_info` path).
+    expected, everyday input, not a classification failure (SPEC.md's `other` /
+    `no_reply` path, the same one the prompt uses for too-short tickets).
     """
-    unclear_llm = LLMClassification(
-        category=Category.UNCLEAR,
-        secondary_categories=[],
+    empty_llm = LLMClassification(
+        category=Category.OTHER,
+        next_step=NextStep.NO_REPLY,
         priority=Priority.P4,
-        next_step=NextStep.REQUEST_MORE_INFO,
-        next_step_note="The ticket text was empty; ask the customer for details.",
+        next_step_note="The ticket text was empty; no reply is needed.",
         language="unknown",
         tone="unknown",
         confidence=1.0,
-        requests_human=False,
         rationale="The ticket text was empty or whitespace-only.",
     )
-    classification = apply_rules(unclear_llm)
+    classification = apply_rules(empty_llm)
     return ClassifyResult(
         classification=classification,
         model_used="none",
@@ -122,7 +118,7 @@ def classify(
     tests so retries don't slow down the suite.
     """
     if not ticket or not ticket.strip():
-        return _unclear_result()
+        return _empty_result()
 
     system = render_prompt(prompt_version)
     user = _wrap_ticket(ticket)

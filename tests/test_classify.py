@@ -12,15 +12,13 @@ from support_ai.core.llm.errors import LLMProviderError
 _name_counter = itertools.count()
 
 VALID_DATA = {
-    "category": "refund_request",
-    "secondary_categories": [],
-    "priority": "P2",
-    "next_step": "route_refunds",
-    "next_step_note": "Verify the charge.",
+    "category": "payment_issue",
+    "next_step": "send_refund_policy",
+    "priority": "P3",
+    "next_step_note": "Send the refund policy.",
     "language": "en",
     "tone": "neutral",
     "confidence": 0.9,
-    "requests_human": False,
     "rationale": "Explicit refund ask.",
 }
 
@@ -46,8 +44,8 @@ def test_classify_normal_path(monkeypatch):
 
     result = classify("I want a refund", model_chain=chain)
 
-    assert result.classification.category.value == "refund_request"
-    assert result.classification.needs_human_review is False  # P2, no human request, not P1
+    assert result.classification.category.value == "payment_issue"
+    assert result.classification.needs_human_review is False  # not an escalate_human response
     assert result.model_used == chain[0]
     assert result.usage.input_tokens == 100
     assert result.usage.output_tokens == 50
@@ -63,7 +61,8 @@ def test_classify_fallback_path_on_all_models_failed(monkeypatch):
 
     result = classify("Some ticket text", model_chain=chain, sleep=lambda _seconds: None)
 
-    assert result.classification.category.value == "unclear"
+    assert result.classification.category.value == "other"
+    assert result.classification.next_step.value == "escalate_human"
     assert result.classification.priority.value == "P3"
     assert result.classification.needs_human_review is True
     assert "classification_failed" in result.classification.review_reasons
@@ -75,9 +74,9 @@ def test_classify_fallback_path_on_all_models_failed(monkeypatch):
 def test_classify_empty_ticket_path(ticket_text):
     result = classify(ticket_text)
 
-    assert result.classification.category.value == "unclear"
+    assert result.classification.category.value == "other"
     assert result.classification.priority.value == "P4"
-    assert result.classification.next_step.value == "request_more_info"
+    assert result.classification.next_step.value == "no_reply"
     assert result.classification.needs_human_review is False
     assert result.classification.review_reasons == []
     assert result.model_used == "none"
@@ -93,7 +92,7 @@ def test_classify_empty_ticket_makes_no_provider_call(monkeypatch):
 
     result = classify("   ", model_chain=chain)
 
-    assert result.classification.category.value == "unclear"
+    assert result.classification.category.value == "other"
     assert result.classification.needs_human_review is False
     assert fake.calls == []
 

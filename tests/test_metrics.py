@@ -7,6 +7,7 @@ from support_ai.eval.metrics import (
     human_review_recall,
     latency_p50,
     latency_p95,
+    next_step_accuracy,
     priority_accuracy,
 )
 
@@ -14,8 +15,10 @@ from support_ai.eval.metrics import (
 def _record(**overrides) -> EvalRecord:
     defaults = {
         "ticket_id": "t1",
-        "expected_category": "refund_request",
-        "actual_category": "refund_request",
+        "expected_category": "payment_issue",
+        "actual_category": "payment_issue",
+        "expected_next_step": "escalate_human",
+        "actual_next_step": "escalate_human",
         "expected_priority": "P2",
         "actual_priority": "P2",
         "expected_needs_review": True,
@@ -34,7 +37,7 @@ def test_category_accuracy_all_correct():
 
 
 def test_category_accuracy_partial():
-    records = [_record(), _record(ticket_id="t2", actual_category="unclear")]
+    records = [_record(), _record(ticket_id="t2", actual_category="other")]
     assert category_accuracy(records) == 0.5
 
 
@@ -126,3 +129,17 @@ def test_cache_hit_rate_is_cached_share_of_all_input_tokens():
 def test_cache_hit_rate_with_no_input_tokens_is_zero():
     assert cache_hit_rate([_record(input_tokens=0)]) == 0.0
     assert cache_hit_rate([]) == 0.0
+
+
+def test_next_step_accuracy_counts_matching_responses():
+    records = [
+        _record(),
+        _record(ticket_id="t2", actual_next_step="send_refund_policy"),
+        _record(ticket_id="t3"),
+        _record(ticket_id="t4", actual_next_step="generic_reply"),
+    ]
+    assert next_step_accuracy(records) == 0.5
+
+
+def test_next_step_accuracy_empty_is_zero():
+    assert next_step_accuracy([]) == 0.0

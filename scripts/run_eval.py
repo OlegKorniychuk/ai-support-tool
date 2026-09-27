@@ -4,7 +4,7 @@
 Using a single-model chain (no fallback to another model) keeps the model comparison
 clean: every record for a run reflects exactly one model's behavior.
 
-Usage: uv run python scripts/run_eval.py --model gpt-5.4-nano --prompt v1 [--limit 3]
+Usage: uv run python scripts/run_eval.py --model gpt-5.4-nano [--prompt v5] [--limit 3]
 """
 
 import argparse
@@ -15,7 +15,7 @@ from pathlib import Path
 
 from support_ai.classifier.classify import classify
 from support_ai.classifier.dataset import TicketCase, load_tickets
-from support_ai.core.config import MODEL_REGISTRY
+from support_ai.core.config import DEFAULT_PROMPT_VERSION, MODEL_REGISTRY
 from support_ai.core.cost import forecast
 from support_ai.eval.metrics import (
     EvalRecord,
@@ -26,12 +26,14 @@ from support_ai.eval.metrics import (
     human_review_recall,
     latency_p50,
     latency_p95,
+    next_step_accuracy,
     priority_accuracy,
 )
 
 RESULTS_DIR = Path(__file__).resolve().parents[1] / "results"
-# New columns (`human_review_precision`, `cache_hit_rate`) are appended at the end rather
-# than next to related ones: see `_upgrade_summary_header` for why the position matters.
+# New columns (`human_review_precision`, `cache_hit_rate`, `next_step_accuracy`) are
+# appended at the end rather than next to related ones: see `_upgrade_summary_header` for
+# why the position matters.
 SUMMARY_COLUMNS = [
     "timestamp",
     "model",
@@ -46,6 +48,7 @@ SUMMARY_COLUMNS = [
     "cost_per_10k_tickets_usd",
     "human_review_precision",
     "cache_hit_rate",
+    "next_step_accuracy",
 ]
 
 
@@ -55,6 +58,8 @@ def _to_eval_record(ticket: TicketCase, result) -> EvalRecord:
         ticket_id=ticket.id,
         expected_category=ticket.expected_category.value,
         actual_category=classification.category.value,
+        expected_next_step=ticket.expected_next_step.value,
+        actual_next_step=classification.next_step.value,
         expected_priority=ticket.expected_priority.value,
         actual_priority=classification.priority.value,
         expected_needs_review=ticket.expected_needs_review,
@@ -128,6 +133,7 @@ def _append_summary_row(
         "cost_per_10k_tickets_usd": round(forecast(per_ticket_cost, 10_000), 2),
         "human_review_precision": round(human_review_precision(records), 4),
         "cache_hit_rate": round(cache_hit_rate(records), 4),
+        "next_step_accuracy": round(next_step_accuracy(records), 4),
     }
     with summary_path.open("a", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=SUMMARY_COLUMNS)
@@ -139,7 +145,7 @@ def _append_summary_row(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", required=True, choices=sorted(MODEL_REGISTRY))
-    parser.add_argument("--prompt", default="v1", dest="prompt_version")
+    parser.add_argument("--prompt", default=DEFAULT_PROMPT_VERSION, dest="prompt_version")
     parser.add_argument("--limit", type=int, default=None)
     args = parser.parse_args()
 

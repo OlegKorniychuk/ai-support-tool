@@ -10,25 +10,22 @@ from support_ai.classifier.schema import (
 )
 
 VALID_KWARGS = {
-    "category": Category.REFUND_REQUEST,
-    "secondary_categories": [Category.EXPERT_COMPLAINT],
+    "category": Category.PAYMENT_ISSUE,
+    "next_step": NextStep.SEND_REFUND_POLICY,
     "priority": Priority.P2,
-    "next_step": NextStep.ROUTE_REFUNDS,
-    "next_step_note": "Verify last charge.",
+    "next_step_note": "Send the refund policy; the customer was charged twice.",
     "language": "uk",
     "tone": "aggressive",
     "confidence": 0.82,
-    "requests_human": False,
-    "rationale": "Customer asks for a refund and complains about an expert.",
+    "rationale": "Customer asks for a refund of a duplicate charge.",
 }
 
 
 def test_llm_classification_accepts_valid_data():
     parsed = LLMClassification.model_validate(VALID_KWARGS)
-    assert parsed.category is Category.REFUND_REQUEST
+    assert parsed.category is Category.PAYMENT_ISSUE
     assert parsed.priority is Priority.P2
-    assert parsed.next_step is NextStep.ROUTE_REFUNDS
-    assert parsed.requests_human is False
+    assert parsed.next_step is NextStep.SEND_REFUND_POLICY
 
 
 def test_llm_classification_rejects_invalid_category():
@@ -69,39 +66,44 @@ def test_llm_classification_schema_has_no_review_fields():
     assert "review_reasons" not in schema["properties"]
 
 
-def test_category_enum_is_exactly_the_expected_set():
-    # An exhaustive equality check (rather than "not in") so the removed category can't
-    # reappear without also updating this test.
-    values = {c.value for c in Category}
-    assert values == {
-        "billing_subscription",
-        "refund_request",
-        "technical_bug",
+def test_category_enum_is_exactly_the_v5_set():
+    # An exhaustive equality check so a removed category can't reappear without also
+    # updating this test.
+    assert {c.value for c in Category} == {
+        "general_question",
+        "quality_complaint",
         "expert_complaint",
-        "account_access",
-        "feature_request",
-        "usage_help",
-        "general_feedback",
-        "unclear",
+        "payment_issue",
+        "threat",
+        "other",
     }
 
 
-def test_llm_classification_accepts_usage_help_and_unclear_categories():
-    for category in (Category.USAGE_HELP, Category.UNCLEAR):
-        parsed = LLMClassification.model_validate({**VALID_KWARGS, "category": category})
-        assert parsed.category is category
+def test_next_step_enum_is_exactly_the_v5_set():
+    assert {s.value for s in NextStep} == {
+        "send_user_guide",
+        "send_kb_answer",
+        "generic_reply",
+        "record_feature_request",
+        "create_bug_ticket",
+        "record_expert_complaint",
+        "send_refund_policy",
+        "escalate_human",
+        "no_reply",
+    }
 
 
-@pytest.mark.parametrize("value", [True, False])
-def test_llm_classification_accepts_requests_human(value):
-    parsed = LLMClassification.model_validate({**VALID_KWARGS, "requests_human": value})
-    assert parsed.requests_human is value
+def test_llm_classification_generates_next_step_before_priority():
+    """Structured output follows field order: the response is picked before priority."""
+    fields = list(LLMClassification.model_fields)
+    assert fields.index("category") < fields.index("next_step") < fields.index("priority")
 
 
-def test_llm_classification_requires_requests_human():
-    missing = {k: v for k, v in VALID_KWARGS.items() if k != "requests_human"}
+@pytest.mark.parametrize("removed_field", ["requests_human", "secondary_categories"])
+def test_llm_classification_rejects_removed_v4_fields(removed_field):
+    bad = {**VALID_KWARGS, removed_field: False}
     with pytest.raises(ValidationError):
-        LLMClassification.model_validate(missing)
+        LLMClassification.model_validate(bad)
 
 
 def test_llm_classification_rejects_extra_fields():
@@ -114,10 +116,10 @@ def test_llm_classification_rejects_extra_fields():
 
 def test_classification_adds_review_fields():
     classification = Classification.model_validate(
-        {**VALID_KWARGS, "needs_human_review": True, "review_reasons": ["p1_priority"]}
+        {**VALID_KWARGS, "needs_human_review": True, "review_reasons": ["escalate_human"]}
     )
     assert classification.needs_human_review is True
-    assert classification.review_reasons == ["p1_priority"]
+    assert classification.review_reasons == ["escalate_human"]
 
 
 def test_classification_review_fields_default_to_unflagged():
