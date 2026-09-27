@@ -23,7 +23,7 @@ Nebula support gets thousands of tickets a month, and all of them are routed by 
 
 ### Taxonomy
 
-Current prompt: `v6` (`src/support_ai/classifier/prompts/v6.md`). v5 replaced the v1–v4 taxonomy from scratch; v6 keeps that taxonomy and moves priority into code. Older prompts stay in `prompts/` as change history but target earlier schemas and can't be run against the current one.
+Final prompt: `v6` (`src/support_ai/classifier/prompts/v6.md`). v5 replaced the v1–v4 taxonomy from scratch; v6 keeps that taxonomy and moves priority into code. Older prompts stay in `prompts/` as change history but target earlier schemas and can't be run against the current one.
 
 **Category and response.** Each ticket gets exactly one category, then exactly one response (`next_step`) from that category's own list. Within a category, responses are ordered from least to most serious; when several fit, the most serious wins.
 
@@ -38,7 +38,7 @@ Current prompt: `v6` (`src/support_ai/classifier/prompts/v6.md`). v5 replaced th
 
 Anything that can't be definitely placed in one of the five named categories goes to `other`.
 
-**Mixed tickets:** two fixed precedence rules first — a charge caused by an app bug is `payment_issue` / `escalate_human`, and a paid expert session that did not happen is `expert_complaint` / `escalate_human`. Otherwise pick the category and response with the highest priority; ties go to the category that comes first in `threat`, `payment_issue`, `expert_complaint`, `quality_complaint`, `general_question`, `other`.
+**Mixed tickets:** pick the category and response with the highest priority; ties go to the category that comes first in `threat`, `payment_issue`, `expert_complaint`, `quality_complaint`, `general_question`, `other`. The category definitions themselves send a charge caused by an app bug to `payment_issue` and a paid expert session that did not happen to `expert_complaint`.
 
 **Priority** is how fast a person must act, not how upset the customer is. The LLM does **not** set it: each (category, response) pair has a **base** priority, and code raises it **one level** only when the LLM quotes the ticket's statement of a listed fact. Tone, caps, "urgent" and future threats ("I'll sue") never raise it; actions already taken or scheduled do.
 
@@ -131,7 +131,7 @@ pages/
   2_Eval.py                   → reads results/, shows tables, accuracy, model comparison, cost
 src/support_ai/
   core/                       → shared with MVP 2
-    config.py                 → settings, model registry (id, price per 1M tokens)
+    config.py                 → settings, model registry (price per 1M tokens, timeout), default chain + prompt
     cost.py                   → token usage → $ per call, forecasts
     llm/
       base.py                 → LLMProvider protocol, LLMResult, Usage
@@ -145,17 +145,15 @@ src/support_ai/
     rules.py                  → priority table + evidence check, deterministic HITL rules
   eval/
     metrics.py                → pure accuracy/latency/cost metric functions
-scripts/run_eval.py           → runs the test set, writes results/
-data/tickets.jsonl            → 44 synthetic tickets with expected category, next step, priority
+scripts/
+  classify_one.py             → classify one ticket from the command line
+  run_eval.py                 → runs the test set with one model, writes results/
+data/tickets.jsonl            → 45 synthetic tickets with expected category, next step, priority
 results/                      → eval runs (<model>_<prompt>_<date>.json + summary.csv), committed
-tests/                        → unit tests (LLM mocked)
+tests/                        → unit tests (LLM mocked) + Streamlit page smoke tests
 docs/
-  architecture.md             → D1.1, D1.3, D1.4, X3, X5
-  prompt-evolution.md         → D1.2 (v1 → final, with diff notes)
-  edge-cases.md               → D1.6
-  automation-limits.md        → D1.5, D1.7
-  cost.md                     → X2, X4
-REQUIREMENTS.md, SPEC.md
+  REQUIREMENTS.md, SPEC.md
+README.md                     → the write-up: D1.1–D1.7 and X1–X5
 ```
 
 ## Code Style
@@ -163,21 +161,20 @@ REQUIREMENTS.md, SPEC.md
 Code is typed, uses small pure functions, keeps I/O at the edges, uses pydantic at the boundaries, and puts no LLM calls in UI files.
 
 ```python
-class Classification(BaseModel):
-    category: Category
-    next_step: NextStep
+class Classification(LLMClassification):
+    """The full classification, with priority and human review applied by `rules.py`."""
+
     priority: Priority
-    next_step_note: str
-    confidence: float = Field(ge=0, le=1)
     needs_human_review: bool = False
     review_reasons: list[str] = []
 
 
-def classify(ticket: str, *, model: str, prompt_version: str = DEFAULT_PROMPT) -> ClassifyResult:
+def classify(ticket: str, *, model_chain: list[str] | None = None, ...) -> ClassifyResult:
     """Classify one ticket. Never raises; on failure returns a fallback flagged for review."""
-    raw = llm.complete_json(render_prompt(prompt_version, ticket), model=model)
-    parsed = Classification.model_validate(raw.data)
-    return ClassifyResult(classification=apply_rules(parsed), usage=raw.usage)
+    ...
+    gateway_result = complete_with_fallback(chain, system=system, user=user, schema=LLMClassification)
+    llm_classification = LLMClassification.model_validate(gateway_result.result.data)
+    classification = apply_rules(llm_classification, ticket=ticket)
 ```
 
 - ruff defaults plus isort. Line length 100.
@@ -187,10 +184,10 @@ def classify(ticket: str, *, model: str, prompt_version: str = DEFAULT_PROMPT) -
 
 ## Failure Handling (X3)
 
-- **Invalid JSON or schema mismatch:** request JSON output with a schema. If validation still fails, make one repair retry that sends the validation error back to the model. If that fails too, move to the next model.
-- **Timeout:** 20 s per call, configurable. One retry, then the next model.
-- **Rate limit or 5xx:** exponential backoff, at most 2 retries, then the next model in the fallback chain.
-- **All models fail:** return a fallback result (`category=other`, `next_step=escalate_human`, `priority=P3`, `confidence=0`, `needs_human_review=true`, reasons `escalate_human` + `classification_failed`). The UI never crashes.
+- **Invalid JSON or schema mismatch:** structured output (`responses.parse` with the pydantic schema) makes this rare. If validation still fails, make one repair retry that sends the validation error back to the model. If that fails too, move to the next model.
+- **Timeout:** per model in `config.py` (nano 20 s, mini 25 s, gpt-5 45 s with `reasoning_effort=low`). One retry, then the next model.
+- **Rate limit or 5xx:** exponential backoff (1 s, 2 s), at most 2 retries, then the next model in the fallback chain. SDK retries are off (`max_retries=0`); the gateway owns every retry.
+- **All models fail, or any unexpected error (e.g. no API key):** return a fallback result (`category=other`, `next_step=escalate_human`, `priority=P3`, `confidence=0`, `needs_human_review=true`, reasons `escalate_human` + `classification_failed`). `classify()` never raises and the UI never crashes. Every result carries an `attempts` log (model, outcome, detail).
 - **Empty or whitespace-only input:** not a failure. Return a deterministic `category=other`, `next_step=no_reply`, `priority=P4` result with no LLM call and `needs_human_review=false`.
 
 ## Caching (X5)
@@ -215,14 +212,17 @@ input tokens ÷ all input tokens) per run, and both pages show cached tokens.
   - `rules.py`: priority for every table pair, evidence verification, and each HITL rule
   - prompt ↔ code contract: the current prompt's priority table equals `rules.PRIORITY_TABLE`
   - `cost.py` math, including cached-token pricing
-  - `llm.py` retry and fallback logic, using a mocked client that simulates invalid JSON, timeouts and 429s
+  - `core/llm/gateway.py` retry, repair-retry and fallback logic, using a fake provider that simulates invalid output, timeouts and 429s; `openai_provider.py` error mapping with a mocked SDK client
+  - `classify()` normal, fallback and empty-ticket paths
+  - eval metrics and the `summary.csv` writer
+  - Streamlit pages render without exceptions (`AppTest`)
 - **Eval (LLM, run manually, not in pytest):**
   - `scripts/run_eval.py` over `data/tickets.jsonl`
-  - per-ticket pass/fail on category, response (next step) and priority
-  - accuracy, confusion notes, latency p50/p95, cost per ticket
+  - per-ticket pass/fail on category, response (next step) and priority, plus the priority evidence
+  - category / response / priority accuracy, human-review recall and precision, latency p50/p95, cost per ticket and per 10k, cache hit rate
 - **Test set:**
   - one ticket per (category, response) pair at base priority, and a raised ticket for every raisable pair
-  - one ticket per escalation trigger (violence, self-harm, legal action, chargeback, …)
+  - one ticket per escalation trigger (violence, self-harm, legal action, chargeback filed or threatened, …)
   - edge cases: non-English (uk, es, fr), mixed categories, prompt injection, too short, aggressive tone, "I want a real person"
   - every label is checked in pytest against `PRIORITY_TABLE`
 - **Manual test:** paste the edge-case tickets into the Classifier page, locally and on the deployed app.
@@ -242,26 +242,28 @@ input tokens ÷ all input tokens) per run, and both pages show cached tokens.
   - any eval run expected to cost more than $1
 - **Never:**
   - commit API keys
-  - let the LLM decide `needs_human_review`
+  - let the LLM decide `needs_human_review` or `priority`
   - use real customer data
   - call the network in unit tests
-  - delete old prompt versions or eval results
+  - delete old prompt versions, or eval results of the current taxonomy (pre-v5 runs were cleared deliberately when the taxonomy was replaced, since they are not comparable)
 
 ## Success Criteria
 
 - [ ] The app is deployed on Streamlit Community Cloud. Pasting a ticket returns a valid result in under 10 s with the cheapest passing model.
-- [ ] Every edge-case ticket returns a valid schema. None crash.
-- [ ] The eval shows **category accuracy ≥ 85%** and **priority accuracy ≥ 75%** for the chosen default model.
-- [ ] 100% of tickets expected to need review are flagged (HITL recall = 1.0 on the test set), and human-review precision is tracked alongside it so escalations stay both complete and correct.
-- [ ] The model comparison table covers all 3 models: accuracy, p50 latency, cost per ticket, cost per 10k tickets.
-- [ ] The failure paths (invalid JSON, timeout, 429, all models down) are covered by unit tests and all pass.
-- [ ] At least 3 prompt versions are committed, and `docs/prompt-evolution.md` explains the changes.
-- [ ] The docs cover D1.1–D1.7 and X1–X5.
+- [x] Every edge-case ticket returns a valid schema. None crash. (Final v6 runs: 0 errors across 45 tickets × 3 models.)
+- [x] The eval shows **category accuracy ≥ 85%** and **priority accuracy ≥ 75%** for the chosen default model. (Final v6, `gpt-5.4-nano`: 95.6% / 75.6%.)
+- [ ] 100% of tickets expected to need review are flagged (HITL recall = 1.0 on the test set), and human-review precision is tracked alongside it so escalations stay both complete and correct. (Final v6: **not met by the default `gpt-5.4-nano`** — recall 14/17 (82%), precision 14/15; met by `gpt-5.4-mini` (17/17, precision 17/17) and `gpt-5` (17/17, precision 17/18).)
+- [x] The model comparison table covers all 3 models: accuracy, p50 latency, cost per ticket, cost per 10k tickets. (`results/summary.csv`, final v6 rows.)
+- [x] The failure paths (invalid JSON, timeout, 429, all models down) are covered by unit tests and all pass.
+- [ ] At least 3 prompt versions are committed (done: v1–v6), and README explains the changes.
+- [ ] README covers D1.1–D1.7 and X1–X5.
 
 ## Decisions
 
 - The accuracy targets are confirmed: category ≥ 85%, priority ≥ 75%.
-- The UI has no model or prompt picker. After the eval, one model and one prompt version are fixed in `config.py`. Model comparison happens only through `scripts/run_eval.py` and the Eval page.
+- The UI has no model or prompt picker. After the eval, one model and one prompt version are fixed in `config.py`: prompt `v6`, default chain `gpt-5.4-nano` → `gpt-5.4-mini` → `gpt-5`. Nano is the cheapest model and meets the accuracy targets, but not HITL recall (82%); mini meets every target (priority 93.3%, recall 100%) at about 3.7× the cost ($11.71 vs $3.20 per 10k), and `gpt-5` scores highest (priority 95.6%) at about 14× the cost and 3.6× the p50 latency. Model comparison happens only through `scripts/run_eval.py` and the Eval page.
+- Priority is computed by code from a quoted piece of evidence (v6), not chosen by the LLM. A variant where the LLM also names the raise fact from a fixed list (an unreleased v7) scored worse and was dropped.
+- Some v6 prompt examples closely resemble test tickets (t002, t005, t006, t035), so v6 scores on those tickets are likely somewhat optimistic.
 - The project uses OpenAI only; OpenRouter was dropped. Prompt iteration starts on `gpt-5.4-nano`. The fallback chain is nano → mini → gpt-5, all from the same provider, so an OpenAI-wide outage leads to the fallback result.
 
 ## Open Questions
