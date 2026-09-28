@@ -9,9 +9,6 @@ To add a backend: write `kb/<backend>.py` implementing `KnowledgeBase`, import i
 call `register_knowledge_base("<name>", <factory>)` (lazy, like `core/llm/__init__.py`
 registering `OpenAIProvider`), then set `config.KB_BACKEND = "<name>"`. Nothing in
 `assistant/` has to change.
-
-`kb/in_memory.py`'s registration as `"in_memory"` (the default `config.KB_BACKEND`) is
-added here in a later task, once that adapter exists.
 """
 
 from support_ai.kb.base import (
@@ -23,6 +20,9 @@ from support_ai.kb.base import (
     get_knowledge_base,
     register_knowledge_base,
 )
+from support_ai.kb.in_memory import InMemoryKnowledgeBase
+
+register_knowledge_base("in_memory", InMemoryKnowledgeBase)
 
 __all__ = [
     "Article",

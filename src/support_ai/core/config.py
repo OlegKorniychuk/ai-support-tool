@@ -9,6 +9,7 @@ registry entry is a chat model.
 """
 
 import os
+from pathlib import Path
 from typing import Literal
 
 from dotenv import load_dotenv
@@ -84,6 +85,12 @@ EMBEDDING_MODEL: str = "text-embedding-3-small"
 # Default KB retrieval backend, looked up in kb/base.py's registry (kb/__init__.py wires
 # "in_memory" in on import). Swapping backends is changing this one string.
 KB_BACKEND: str = "in_memory"
+KB_TOP_K: int = 3
+# Placeholder; calibrated in Task 17 with scripts/kb_scores.py. `in_memory`-adapter-only:
+# other backends set their own relevance threshold on their own score scale.
+KB_MIN_SCORE: float = 0.3
+KB_DIR: Path = Path(__file__).resolve().parents[3] / "data" / "kb"
+KB_CACHE_PATH: Path = Path(__file__).resolve().parents[3] / ".cache" / "kb_embeddings.json"
 
 
 def get_api_key() -> str | None:
