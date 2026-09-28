@@ -14,7 +14,7 @@ from pathlib import Path
 
 from support_ai.eval.metrics import EvalRecord
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 _spec = importlib.util.spec_from_file_location("run_eval", REPO_ROOT / "scripts" / "run_eval.py")
 run_eval = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(run_eval)

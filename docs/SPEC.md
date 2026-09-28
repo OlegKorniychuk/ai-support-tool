@@ -54,7 +54,7 @@ Anything that can't be definitely placed in one of the five named categories goe
 | `other` / `escalate_human` | P3 | — | — |
 | every other pair | P4 | — | — |
 
-The same table lives in `rules.PRIORITY_TABLE`; `tests/test_prompts.py` parses the prompt's table and fails if the two drift apart. The LLM returns `priority_raise_evidence`: the shortest verbatim quote from the ticket (in its original language) that states the chosen pair's raise fact, or `null`. `rules.py` sets the raised priority only if the pair can be raised **and** the quote really appears in the ticket (case, whitespace and surrounding quote marks ignored); otherwise it uses the base and drops the quote. So the output carries evidence exactly when priority was raised. An invalid pair gets P3 (and is flagged).
+The same table lives in `rules.PRIORITY_TABLE`; `tests/mvp1/test_prompts.py` parses the prompt's table and fails if the two drift apart. The LLM returns `priority_raise_evidence`: the shortest verbatim quote from the ticket (in its original language) that states the chosen pair's raise fact, or `null`. `rules.py` sets the raised priority only if the pair can be raised **and** the quote really appears in the ticket (case, whitespace and surrounding quote marks ignored); otherwise it uses the base and drops the quote. So the output carries evidence exactly when priority was raised. An invalid pair gets P3 (and is flagged).
 
 Each response also comes with a one-line free-text `next_step_note`.
 
@@ -115,7 +115,7 @@ Development and prompt iteration start on `gpt-5.4-nano`. The default model in p
 ```
 Install:     uv sync
 Dev app:     uv run streamlit run streamlit_app.py
-Tests:       uv run pytest -q
+Tests:       uv run pytest tests/mvp1 tests/core -q   # or `uv run pytest -q` for everything
 Lint:        uv run ruff check . --fix
 Format:      uv run ruff format .
 Eval (1):    uv run python scripts/run_eval.py --model gpt-5.4-nano --prompt v6
@@ -150,7 +150,8 @@ scripts/
   run_eval.py                 → runs the test set with one model, writes results/
 data/tickets.jsonl            → 45 synthetic tickets with expected category, next step, priority
 results/                      → eval runs (<model>_<prompt>_<date>.json + summary.csv), committed
-tests/                        → unit tests (LLM mocked) + Streamlit page smoke tests
+tests/mvp1/, tests/core/      → unit tests (LLM mocked) + Streamlit page smoke tests;
+                                 MVP 2 adds tests/mvp2/ — see docs/SPEC_MVP2.md
 docs/
   REQUIREMENTS_MVP1.md, REQUIREMENTS_MVP2.md, SPEC.md
 README.md                     → the write-up: D1.1–D1.7 and X1–X5

@@ -188,7 +188,9 @@ Models: `gpt-5.4-nano` / `gpt-5.4-mini` / `gpt-5` (reply, compared); `text-embed
 ```
 Install:      uv sync
 Dev app:      uv run streamlit run streamlit_app.py
-Tests:        uv run pytest -q
+Tests (core): uv run pytest tests/core tests/mvp2 -q
+Tests (mvp1): uv run pytest tests/mvp1 -q
+Tests (all):  uv run pytest -q
 Lint:         uv run ruff check . --fix
 Format:       uv run ruff format .
 Assist one:   uv run python scripts/assist_one.py "How do I change my birth time?"
@@ -198,6 +200,16 @@ Record judge: uv run python scripts/record_judgement.py results/reply/<run>.judg
 KB threshold: uv run python scripts/kb_scores.py
 Judge agree:  uv run python scripts/judge_agreement.py
 ```
+
+Tests are split into three suites so MVP 1's own tests don't have to run for every MVP 2
+change: `tests/core/` (shared `core/` modules plus the shared home page), `tests/mvp1/`
+(classifier + its eval/scripts/pages), `tests/mvp2/` (this MVP's own tests). Every MVP 2
+task runs `Tests (core)`. `Tests (mvp1)` is run once for a task only when that task touches
+an MVP 1-owned path (`src/support_ai/classifier/`, `src/support_ai/eval/metrics.py`,
+`scripts/run_eval.py`, `scripts/classify_one.py`, `pages/1_*`, `pages/2_*`,
+`data/tickets.jsonl`) or changes a shared `core/` module's contract that MVP 1 depends on,
+plus at checkpoints. `Tests (all)` (`uv run pytest -q`) always runs the full suite and is
+what CI-equivalent verification before a commit ultimately reports.
 
 ## Project Structure
 
@@ -256,6 +268,14 @@ data/
 results/reply/                → runs, *.judge.json, summary.csv, judge_summary.csv
                                  (append-only, joined to summary.csv by run name),
                                  hand_scores.csv (committed)
+tests/
+  fakes.py                    → shared scripted FakeProvider, stays at tests/ root
+                                 (importable from every suite via pytest `pythonpath`)
+  core/                        → shared core/ modules (incl. embeddings) + the shared
+                                 home page's smoke test (test_home_page.py)
+  mvp1/                        → classifier + its eval/scripts/pages (moved from tests/,
+                                 unchanged behavior; see docs/SPEC.md)
+  mvp2/                        → this MVP's own tests (new)
 docs/SPEC_MVP2.md             → this spec
 README.md                     → + MVP 2 part (Ukrainian): D2.1–D2.6, X1–X5 for MVP 2
 ```
@@ -311,6 +331,10 @@ judging on Claude instead of OpenAI.
 
 ## Testing Strategy
 
+Every new MVP 2 test file lives under `tests/mvp2/`, except tests of a shared `core/`
+module (e.g. embeddings on the provider/gateway), which live under `tests/core/` alongside
+the classifier's `core/` tests — see Commands for which suite each task must run.
+
 - **Unit (pytest, no network; `FakeProvider` gains a scripted `embed()`):**
   - KB loader and header parser; cosine / top-k; embedding cache hit, invalidation on text
     or model change, pruning
@@ -325,7 +349,7 @@ judging on Claude instead of OpenAI.
   - reply metrics, `eval/summary_csv.py` writer/reader shared by both eval scripts,
     `record_judgement.py` validation (unknown ticket ids, missing tickets, bad scores
     rejected) and its `judge_summary.csv` append
-  - embeddings error mapping in `openai_provider.py` (mocked SDK)
+  - embeddings error mapping in `openai_provider.py` (mocked SDK) — `tests/core/`
   - pages 3 and 4 render (`AppTest`)
 - **Reply eval (OpenAI, manual):** `scripts/run_reply_eval.py --model X` over 30 tickets,
   one model, no fallback. Per ticket: retrieved ids vs `expected_kb_ids`, cited id, quote
