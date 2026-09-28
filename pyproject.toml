@@ -1,7 +1,7 @@
 [project]
 name = "support-ai"
 version = "0.1.0"
-description = "AI ticket classifier prototype (MVP 1)"
+description = "AI support tool prototype: ticket classifier (MVP 1) and agent reply assistant (MVP 2)"
 authors = [
     { name = "OlegKorniychuk", email = "kornoleg576@gmail.com" }
 ]
