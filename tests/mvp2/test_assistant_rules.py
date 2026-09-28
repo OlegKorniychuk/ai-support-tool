@@ -143,6 +143,31 @@ def test_judge_kb_quote_with_prompt_markers_still_verifies_and_is_stored_strippe
     assert result.kb_source.quote == "Open Profile → Settings and tap Save"
 
 
+def test_judge_kb_quote_spanning_list_steps_verifies_without_the_step_number():
+    """The model copied two list steps but dropped the "3." between them (see r013) — no
+    wording changed, so the quote still verifies."""
+    steps = Article(
+        id="art-s", title="Steps", text="To book:\n2. Open a profile.\n3. Select a slot and pay."
+    )
+    search = SearchResult(hits=[KBHit(article=steps, score=0.9)], has_match=True, latency_ms=5)
+    reply = _reply(kb_article_id="art-s", kb_quote="Open a profile.\n\nSelect a slot and pay.")
+    result = judge(ticket="How do I book?", search=search, reply=reply, pre_reasons=[])
+
+    assert result.reasons == []
+    assert result.kb_source is not None
+
+
+def test_judge_kb_quote_skipping_a_list_step_is_still_unverified():
+    steps = Article(
+        id="art-s", title="Steps", text="1. Open a profile.\n2. Pick a date.\n3. Tap Save."
+    )
+    search = SearchResult(hits=[KBHit(article=steps, score=0.9)], has_match=True, latency_ms=5)
+    reply = _reply(kb_article_id="art-s", kb_quote="1. Open a profile.\n3. Tap Save.")
+    result = judge(ticket="How do I book?", search=search, reply=reply, pre_reasons=[])
+
+    assert result.reasons == [JudgmentReason.KB_QUOTE_UNVERIFIED]
+
+
 # --- judge: account_specific ---------------------------------------------------------------
 
 
@@ -171,6 +196,30 @@ def test_judge_account_specific_evidence_with_prompt_markers_still_verifies():
     assert result.reasons == [JudgmentReason.ACCOUNT_SPECIFIC]
     assert result.account_specific_evidence == ticket
     assert "<<<TICKET>>>" not in result.account_specific_evidence
+
+
+def test_judge_account_specific_evidence_wrapped_in_model_words_verifies_the_quoted_span():
+    """The model sometimes wraps its quote in its own words (see r024 in a v4 run) — the
+    double-quoted span inside is verified and stored instead of the whole field."""
+    ticket = "I requested a refund on September 20th - has it been approved yet?"
+    reply = _reply(
+        account_specific_evidence='The ticket says: "has it been approved yet?" (refund status)'
+    )
+    result = judge(ticket=ticket, search=SEARCH, reply=reply, pre_reasons=[])
+
+    assert result.reasons == [JudgmentReason.ACCOUNT_SPECIFIC]
+    assert result.account_specific_evidence == "has it been approved yet?"
+    assert result.dropped_evidence == []
+
+
+def test_judge_account_specific_evidence_with_quoted_span_not_in_ticket_is_dropped():
+    ticket = "How do I change my name?"
+    reply = _reply(account_specific_evidence='The ticket says: "where is my refund"')
+    result = judge(ticket=ticket, search=SEARCH, reply=reply, pre_reasons=[])
+
+    assert result.reasons == []
+    assert result.account_specific_evidence is None
+    assert len(result.dropped_evidence) == 1
 
 
 def test_judge_account_specific_evidence_dropped_when_not_found_in_ticket():

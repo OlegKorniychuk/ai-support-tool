@@ -20,6 +20,11 @@ _QUOTE_EDGES = " \t\n\"'“”‘’«»….,;:!?"
 _MARKER_LINE = re.compile(r"^[ \t]*<<<[^\n<>]*>>>[ \t]*$")
 _MARKER_TOKEN = re.compile(r"<<<[^\n<>]*>>>")
 
+# A list marker — "1." / "2)" / "-" / "*" / "•" plus the space after it — at the start of a
+# line, or right after a colon or full stop (a list the model flattened onto one line:
+# "details: 1. Open Profile. 2. Tap Save.").
+_LIST_MARKER = re.compile(r"(?:^|(?<=[:.]))[ \t]*(?:\d+[.)]|[-*•])[ \t]+", re.MULTILINE)
+
 
 def wrap_ticket(ticket: str) -> str:
     """Wrap raw ticket text in a delimited block, as a guard against prompt injection."""
@@ -37,6 +42,17 @@ def strip_markers(text: str) -> str:
     """
     lines = [line for line in text.splitlines() if not _MARKER_LINE.match(line)]
     return _MARKER_TOKEN.sub("", "\n".join(lines)).strip()
+
+
+def strip_list_markers(text: str) -> str:
+    """Replace numbered/bulleted list markers with a space, at line starts and after colons.
+
+    For verifying a quote copied from a list in an article: the model sometimes drops a
+    step number ("3.") between two steps it copies, or flattens a list onto one line, which
+    changes no wording. Apply it to both the quote and the source text before
+    `quote_in_text`. Numbers mid-sentence ("within 3 days.") are never touched.
+    """
+    return _LIST_MARKER.sub(" ", text)
 
 
 def normalize(text: str) -> str:

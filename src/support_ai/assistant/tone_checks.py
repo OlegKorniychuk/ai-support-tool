@@ -48,6 +48,10 @@ _CONTRACTIONS = {
 
 _WORD = re.compile(r"[a-z0-9]+")
 
+# Text in straight or curly double quotes — e.g. an app label like "I don't know my birth
+# time" copied from the KB — isn't the draft's own wording, so its contractions don't count.
+_DOUBLE_QUOTED = re.compile(r'["“][^"“”]*["”]')
+
 
 class ToneCheck(BaseModel):
     """The result of `check_drafts` for one ticket's 3 drafts."""
@@ -71,10 +75,11 @@ def find_contractions(text: str) -> list[str]:
     Flags "n't" forms (don't, can't, isn't, ... — any word ending in "n't"/"n’t") and the
     fixed list of common contractions in `_CONTRACTIONS`. Both straight (') and curly (’)
     apostrophes count, and matching is case-insensitive. Possessives ("customer's", "the
-    app's") are never flagged: they're neither an "n't" form nor in `_CONTRACTIONS`.
+    app's") are never flagged: they're neither an "n't" form nor in `_CONTRACTIONS`. Text in
+    double quotes is skipped (a quoted app label isn't the draft's own wording).
     """
     found = []
-    for match in _APOSTROPHE_WORD.finditer(text):
+    for match in _APOSTROPHE_WORD.finditer(_DOUBLE_QUOTED.sub(" ", text)):
         word = match.group()
         normalized = word.replace("’", "'").lower()
         if normalized.endswith("n't") or normalized in _CONTRACTIONS:

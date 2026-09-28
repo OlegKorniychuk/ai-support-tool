@@ -79,6 +79,11 @@ def test_find_contractions_never_flags_possessives(text):
     assert find_contractions(text) == []
 
 
+def test_find_contractions_skips_double_quoted_text():
+    text = "Turn on \"I don't know my birth time\" or “I can’t find it”, but don't guess."
+    assert find_contractions(text) == ["don't"]
+
+
 def test_find_contractions_no_apostrophes():
     assert find_contractions("Open Profile then tap Save.") == []
 

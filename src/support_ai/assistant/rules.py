@@ -8,6 +8,8 @@ doesn't verify is dropped rather than trusted, and noted in `dropped_evidence` s
 can count how often the model reported something it shouldn't have.
 """
 
+import re
+
 from support_ai.assistant.schema import (
     Draft,
     Judgment,
@@ -17,8 +19,11 @@ from support_ai.assistant.schema import (
     LLMSummary,
     Tone,
 )
-from support_ai.core.text import quote_in_text, strip_markers
+from support_ai.core.text import quote_in_text, strip_list_markers, strip_markers
 from support_ai.kb.base import SearchResult
+
+# A span in straight or curly double quotes, e.g. the quote in `The ticket says: "..."`.
+_QUOTED_SPAN = re.compile(r'["“]([^"“”]+)["”]')
 
 
 def pre_generation_reasons(search: SearchResult | None) -> list[JudgmentReason]:
@@ -97,7 +102,9 @@ def _verify_kb_source(
     rows): the model cited no article, the cited article isn't among the retrieved hits, or
     the quote doesn't verify against that article's text. Markers are stripped from
     `kb_quote` before verifying (and from the stored quote) in case the model echoed a
-    whole wrapped block instead of copying the article text.
+    whole wrapped block instead of copying the article text, and list markers ("3.", "-")
+    are ignored on both sides: a quote spanning two steps that drops the step number between
+    them still changes no wording.
 
     A cited-but-rejected quote is logged in the returned dropped-evidence list (cited id +
     raw quote) so the eval can see what was rejected, not just that something was.
@@ -107,7 +114,11 @@ def _verify_kb_source(
 
     hit = search.get_hit(reply.kb_article_id) if search is not None else None
     quote = strip_markers(reply.kb_quote) if reply.kb_quote is not None else None
-    if hit is not None and quote is not None and quote_in_text(quote, hit.article.text):
+    if (
+        hit is not None
+        and quote is not None
+        and quote_in_text(strip_list_markers(quote), strip_list_markers(hit.article.text))
+    ):
         kb_source = KBSource(
             article_id=hit.article.id, title=hit.article.title, quote=quote, text=hit.article.text
         )
@@ -123,14 +134,19 @@ def _verify_evidence(
     """Verify `account_specific_evidence` is really a quote from `ticket` (the
     `account_specific` row). Markers are stripped before verifying (and from the stored
     evidence) in case the model echoed the whole wrapped ticket block instead of a short
-    quote from it. Unverified (but non-null) evidence is dropped, not trusted: a made-up
-    quote is no proof the answer depends on the customer's own account.
+    quote from it. If the whole field doesn't verify, a double-quoted span inside it is
+    tried instead, for evidence wrapped in the model's own words (`The ticket says: "..."`).
+    Unverified (but non-null) evidence is dropped, not trusted: a made-up quote is no proof
+    the answer depends on the customer's own account.
     """
     if evidence is None:
         return None, None, []
     stripped = strip_markers(evidence)
     if quote_in_text(stripped, ticket):
         return stripped, JudgmentReason.ACCOUNT_SPECIFIC, []
+    for span in _QUOTED_SPAN.findall(stripped):
+        if quote_in_text(span, ticket):
+            return span, JudgmentReason.ACCOUNT_SPECIFIC, []
     return None, None, [f"account_specific_evidence not found in ticket: {evidence!r}"]
 
 

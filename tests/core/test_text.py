@@ -1,6 +1,12 @@
 import pytest
 
-from support_ai.core.text import normalize, quote_in_text, strip_markers, wrap_ticket
+from support_ai.core.text import (
+    normalize,
+    quote_in_text,
+    strip_list_markers,
+    strip_markers,
+    wrap_ticket,
+)
 
 TEXT = "I can't log in at all since the update. Please fix it!"
 
@@ -55,6 +61,22 @@ def test_quote_in_text_is_generic_beyond_tickets():
     article = "Open Profile → Birth details and tap the time field to edit it."
     assert quote_in_text("Open Profile → Birth details and tap the time field", article)
     assert not quote_in_text("Open Settings and edit birth time", article)
+
+
+def test_strip_list_markers_removes_numbers_and_bullets_at_line_starts():
+    text = "Steps:\n1. Open Profile.\n2) Tap Save.\n- Done\n* Also\n• Last"
+    assert normalize(strip_list_markers(text)) == "steps: open profile. tap save. done also last"
+
+
+def test_strip_list_markers_handles_a_list_flattened_after_a_colon():
+    article = "To edit your details:\n1. Open Profile.\n2. Tap Save."
+    quote = "To edit your details: 1. Open Profile. 2. Tap Save."
+    assert quote_in_text(strip_list_markers(quote), strip_list_markers(article))
+
+
+def test_strip_list_markers_keeps_numbers_inside_a_line():
+    text = "Refunds take 5-7 days. It costs 5. Plans - monthly or yearly."
+    assert strip_list_markers(text) == text
 
 
 def test_strip_markers_drops_whole_wrapped_ticket_block():

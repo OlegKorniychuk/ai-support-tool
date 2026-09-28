@@ -1,3 +1,5 @@
 run,judged_at,judge_model,rubric_version,n_tickets,n_drafted,tone_score_formal,tone_score_empathetic,tone_score_short,faithful_rate,addresses_request_rate,summary_accurate_rate,distinct_rate
 gpt-5.4-nano_v1_20260928T145317Z,2026-09-28T14:57:08Z,claude-sonnet-5,v1,30,22,4.909,4.773,4.636,1.0,1.0,1.0,0.9545
 gpt-5.4-nano_v2_20260928T145927Z,2026-09-28T15:04:42Z,claude-sonnet-5,v1,30,24,3.875,3.417,4.5,1.0,1.0,1.0,0.9583
+gpt-5.4-nano_v2_20260928T150713Z,2026-09-28T15:39:20Z,claude-sonnet-5,v2,30,22,4.136,4.091,4.045,1.0,1.0,1.0,1.0
+gpt-5.4-nano_v4_20260928T153513Z,2026-09-28T15:41:20Z,claude-sonnet-5,v2,30,20,4.95,4.75,3.9,1.0,1.0,0.9,0.9
