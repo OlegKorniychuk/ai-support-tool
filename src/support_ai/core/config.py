@@ -81,6 +81,9 @@ DEFAULT_MODEL_CHAIN: list[str] = ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5"]
 DEFAULT_MODEL: str = DEFAULT_MODEL_CHAIN[0]
 DEFAULT_PROMPT_VERSION: str = "v6"
 EMBEDDING_MODEL: str = "text-embedding-3-small"
+# Default KB retrieval backend, looked up in kb/base.py's registry (kb/__init__.py wires
+# "in_memory" in on import). Swapping backends is changing this one string.
+KB_BACKEND: str = "in_memory"
 
 
 def get_api_key() -> str | None:
