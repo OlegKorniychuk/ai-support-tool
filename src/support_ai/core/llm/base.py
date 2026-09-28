@@ -1,9 +1,12 @@
 """Provider-agnostic LLM contracts.
 
 Only `openai_provider.py` may import the `openai` SDK. The classifier, the gateway, the
-pages, the scripts and the eval code depend only on `LLMProvider`, `LLMResult` and the
-normalized errors in `errors.py`. Switching provider means adding one adapter file and
-registering it here; nothing else changes.
+pages, the scripts and the eval code depend only on `LLMProvider`, `LLMResult`,
+`EmbeddingResult` and the normalized errors in `errors.py`. Switching provider means adding
+one adapter file and registering it here; nothing else changes. `LLMProvider` covers both
+chat completion (`complete_structured`) and embeddings (`embed`); a provider that only
+supports one can still implement both, since MVP 2's KB retrieval needs embeddings from the
+same providers MVP 1's classifier uses for chat.
 """
 
 from collections.abc import Callable
@@ -26,6 +29,15 @@ class LLMResult(BaseModel):
     latency_ms: int
 
 
+class EmbeddingResult(BaseModel):
+    # One vector per input text, in input order.
+    vectors: list[list[float]]
+    # Embeddings have no output tokens; `usage.output_tokens` is always 0.
+    usage: Usage
+    model: str
+    latency_ms: int
+
+
 @runtime_checkable
 class LLMProvider(Protocol):
     name: str
@@ -39,6 +51,14 @@ class LLMProvider(Protocol):
         model: str,
         timeout_s: float,
     ) -> LLMResult: ...
+
+    def embed(
+        self,
+        *,
+        texts: list[str],
+        model: str,
+        timeout_s: float,
+    ) -> EmbeddingResult: ...
 
 
 _FACTORIES: dict[str, Callable[[], LLMProvider]] = {}

@@ -145,7 +145,8 @@ def _append_summary_row(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", required=True, choices=sorted(MODEL_REGISTRY))
+    chat_models = sorted(name for name, cfg in MODEL_REGISTRY.items() if cfg.kind == "chat")
+    parser.add_argument("--model", required=True, choices=chat_models)
     parser.add_argument("--prompt", default=DEFAULT_PROMPT_VERSION, dest="prompt_version")
     parser.add_argument("--limit", type=int, default=None)
     args = parser.parse_args()

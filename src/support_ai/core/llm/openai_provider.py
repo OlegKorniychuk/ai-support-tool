@@ -1,24 +1,46 @@
 """The OpenAI adapter. This is the only module in the codebase that imports `openai`.
 
 Maps the SDK's exceptions onto our normalized error hierarchy so the gateway and
-everything above it never has to know which provider is in use.
+everything above it never has to know which provider is in use. `complete_structured`
+(chat) and `embed` share that mapping via `_map_openai_errors`; `complete_structured`
+layers its own handling for invalid structured output on top.
 """
 
 import json
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import ClassVar
 
 import openai
 import pydantic
 
 from support_ai.core.config import MODEL_REGISTRY, get_api_key
-from support_ai.core.llm.base import LLMResult, Usage
+from support_ai.core.llm.base import EmbeddingResult, LLMResult, Usage
 from support_ai.core.llm.errors import (
     LLMInvalidOutput,
     LLMProviderError,
     LLMRateLimited,
     LLMTimeout,
 )
+
+
+@contextmanager
+def _map_openai_errors() -> Iterator[None]:
+    """Map the OpenAI SDK's exceptions onto the normalized error hierarchy.
+
+    Shared between `complete_structured` and `embed`. Exceptions unrelated to the OpenAI
+    SDK (e.g. structured-output parsing errors) pass through unchanged for the caller to
+    handle on its own.
+    """
+    try:
+        yield
+    except openai.APITimeoutError as exc:
+        raise LLMTimeout(str(exc)) from exc
+    except (openai.RateLimitError, openai.InternalServerError) as exc:
+        raise LLMRateLimited(str(exc)) from exc
+    except openai.APIError as exc:
+        raise LLMProviderError(str(exc)) from exc
 
 
 def _describe_missing_output(response: object) -> str:
@@ -61,22 +83,17 @@ class OpenAIProvider:
 
         start = time.monotonic()
         try:
-            response = self._client.responses.parse(
-                model=model,
-                instructions=system,
-                input=user,
-                text_format=schema,
-                timeout=timeout_s,
-                reasoning=reasoning,
-            )
-        except openai.APITimeoutError as exc:
-            raise LLMTimeout(str(exc)) from exc
-        except (openai.RateLimitError, openai.InternalServerError) as exc:
-            raise LLMRateLimited(str(exc)) from exc
+            with _map_openai_errors():
+                response = self._client.responses.parse(
+                    model=model,
+                    instructions=system,
+                    input=user,
+                    text_format=schema,
+                    timeout=timeout_s,
+                    reasoning=reasoning,
+                )
         except (json.JSONDecodeError, pydantic.ValidationError) as exc:
             raise LLMInvalidOutput(str(exc)) from exc
-        except openai.APIError as exc:
-            raise LLMProviderError(str(exc)) from exc
         latency_ms = int((time.monotonic() - start) * 1000)
 
         parsed = response.output_parsed
@@ -91,6 +108,44 @@ class OpenAIProvider:
                 input_tokens=usage.input_tokens if usage else 0,
                 output_tokens=usage.output_tokens if usage else 0,
                 cached_input_tokens=(getattr(details, "cached_tokens", None) or 0),
+            ),
+            model=response.model,
+            latency_ms=latency_ms,
+        )
+
+    def embed(
+        self,
+        *,
+        texts: list[str],
+        model: str,
+        timeout_s: float,
+    ) -> EmbeddingResult:
+        if not texts:
+            return EmbeddingResult(
+                vectors=[],
+                usage=Usage(input_tokens=0, output_tokens=0),
+                model=model,
+                latency_ms=0,
+            )
+
+        start = time.monotonic()
+        with _map_openai_errors():
+            response = self._client.embeddings.create(
+                model=model,
+                input=texts,
+                timeout=timeout_s,
+            )
+        latency_ms = int((time.monotonic() - start) * 1000)
+
+        # Sort by `index` rather than trusting response order, in case the SDK ever
+        # returns items out of order.
+        vectors = [item.embedding for item in sorted(response.data, key=lambda item: item.index)]
+        usage = getattr(response, "usage", None)
+        return EmbeddingResult(
+            vectors=vectors,
+            usage=Usage(
+                input_tokens=getattr(usage, "prompt_tokens", 0) if usage else 0,
+                output_tokens=0,
             ),
             model=response.model,
             latency_ms=latency_ms,

@@ -2,10 +2,14 @@
 
 The registry holds, per model id, the owning provider, and the price and timeout used by
 `cost.py` and the gateway. It is the one place to edit when a model id, price or timeout
-changes; no other module hardcodes them.
+changes; no other module hardcodes them. It holds both chat and embedding models, told
+apart by `ModelConfig.kind`; callers that only want the classifier's/reply generator's chat
+models (e.g. an eval script's `--model` choices) filter on it rather than assuming every
+registry entry is a chat model.
 """
 
 import os
+from typing import Literal
 
 from dotenv import load_dotenv
 from pydantic import BaseModel
@@ -16,6 +20,8 @@ load_dotenv()
 class ModelConfig(BaseModel):
     provider: str
     model_id: str
+    # "chat" models go through `complete_structured`; "embedding" models through `embed`.
+    kind: Literal["chat", "embedding"] = "chat"
     input_price_per_1m: float
     output_price_per_1m: float
     # Price for input tokens served from the prompt cache; None means no discount.
@@ -56,12 +62,25 @@ MODEL_REGISTRY: dict[str, ModelConfig] = {
         timeout_s=45.0,
         reasoning_effort="low",
     ),
+    # Price confirmed against https://developers.openai.com/api/docs/models/text-embedding-3-small
+    # and https://developers.openai.com/api/docs/pricing on 2026-09-28: $0.02 / 1M tokens.
+    # Embeddings have no output tokens and no prompt-cache discount.
+    "text-embedding-3-small": ModelConfig(
+        provider="openai",
+        model_id="text-embedding-3-small",
+        kind="embedding",
+        input_price_per_1m=0.02,
+        output_price_per_1m=0.0,
+        cached_input_price_per_1m=None,
+        timeout_s=10.0,
+    ),
 }
 
 # Cheapest first: nano is tried first, falling back to mini then gpt-5 on failure.
 DEFAULT_MODEL_CHAIN: list[str] = ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5"]
 DEFAULT_MODEL: str = DEFAULT_MODEL_CHAIN[0]
 DEFAULT_PROMPT_VERSION: str = "v6"
+EMBEDDING_MODEL: str = "text-embedding-3-small"
 
 
 def get_api_key() -> str | None:
