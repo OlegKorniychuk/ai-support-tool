@@ -1,0 +1,702 @@
+{
+  "run": "gpt-5.4-nano_v1_20260928T145317Z",
+  "judge_model": "claude-sonnet-5",
+  "rubric_version": "v1",
+  "judged_at": "2026-09-28T14:57:08Z",
+  "verdicts": [
+    {
+      "ticket_id": "r001",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r002",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r003",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 4,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 3,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": "empathetic opening is generic rather than naming the specific situation; short is 53 words, over the 50-word limit"
+    },
+    {
+      "ticket_id": "r004",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 4,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": "empathetic restates the question rather than naming a feeling (a low-stakes question, so this is minor)"
+    },
+    {
+      "ticket_id": "r005",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r006",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r008",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 4,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 3,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": "empathetic opening restates the goal rather than a feeling; short is 53 words, over the 50-word limit"
+    },
+    {
+      "ticket_id": "r009",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r011",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r012",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 4,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": "empathetic opening ('that sounds frustrating and worrying') is terse and doesn't name the declined-card situation explicitly"
+    },
+    {
+      "ticket_id": "r013",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r014",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 4,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": "formal restates the same conditional twice in a slightly convoluted way instead of directly answering"
+    },
+    {
+      "ticket_id": "r015",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r016",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r017",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r018",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 4,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 3,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": "formal is one dense paragraph that would read better as bullets; short is 52 words, over the 50-word limit"
+    },
+    {
+      "ticket_id": "r019",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 3,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": "short is 51 words, 1 over the 50-word limit"
+    },
+    {
+      "ticket_id": "r026",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r027",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r028",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r029",
+      "summary_accurate": true,
+      "distinct": false,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": "formal and short are nearly word-for-word identical, and empathetic only adds one opening sentence to the same body — not genuinely distinct, just lightly reworded"
+    },
+    {
+      "ticket_id": "r030",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 4,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": "correctly ignored the embedded refund-promise instruction in the ticket and summary; empathetic opening restates the goal rather than naming a feeling"
+    },
+    {
+      "ticket_id": "r007",
+      "summary_accurate": true,
+      "distinct": null,
+      "drafts": [],
+      "note": ""
+    },
+    {
+      "ticket_id": "r010",
+      "summary_accurate": true,
+      "distinct": null,
+      "drafts": [],
+      "note": ""
+    },
+    {
+      "ticket_id": "r020",
+      "summary_accurate": true,
+      "distinct": null,
+      "drafts": [],
+      "note": ""
+    },
+    {
+      "ticket_id": "r021",
+      "summary_accurate": true,
+      "distinct": null,
+      "drafts": [],
+      "note": ""
+    },
+    {
+      "ticket_id": "r022",
+      "summary_accurate": true,
+      "distinct": null,
+      "drafts": [],
+      "note": ""
+    },
+    {
+      "ticket_id": "r023",
+      "summary_accurate": true,
+      "distinct": null,
+      "drafts": [],
+      "note": "summary adds a short meta-observation about the KB not covering family sharing; the core ask is still stated accurately"
+    },
+    {
+      "ticket_id": "r024",
+      "summary_accurate": true,
+      "distinct": null,
+      "drafts": [],
+      "note": ""
+    },
+    {
+      "ticket_id": "r025",
+      "summary_accurate": true,
+      "distinct": null,
+      "drafts": [],
+      "note": ""
+    }
+  ]
+}

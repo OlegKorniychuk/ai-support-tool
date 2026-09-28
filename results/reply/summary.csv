@@ -1,0 +1,4 @@
+timestamp,run,model,prompt_version,n_tickets,retrieval_hit_rate,citation_accuracy,judgment_recall,judgment_precision,reason_match_rate,drafts_shown_rate,short_ok_rate,formal_ok_rate,distinct_ok_rate,dropped_evidence_rate,error_rate,latency_p50_ms,latency_p95_ms,cost_per_ticket_usd,cost_per_10k_tickets_usd,cache_hit_rate
+20260928T145317Z,gpt-5.4-nano_v1_20260928T145317Z,gpt-5.4-nano,v1,30,0.9524,0.9524,0.5556,0.625,0.4444,0.8571,0.8182,1.0,0.9545,0.0333,0.0,3610,5547,0.000848,8.48,0.0838
+20260928T145927Z,gpt-5.4-nano_v2_20260928T145927Z,gpt-5.4-nano,v2,30,1.0,0.9524,0.5556,0.8333,0.4444,0.9524,1.0,0.9583,1.0,0.1,0.0,3672,6238,0.000964,9.64,0.0
+20260928T150713Z,gpt-5.4-nano_v2_20260928T150713Z,gpt-5.4-nano,v2,30,1.0,0.9524,0.7778,0.875,0.6667,0.9524,0.8636,1.0,1.0,0.0333,0.0,4554,6537,0.000645,6.45,0.674

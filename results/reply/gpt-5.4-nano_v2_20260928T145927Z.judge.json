@@ -1,0 +1,746 @@
+{
+  "run": "gpt-5.4-nano_v2_20260928T145927Z",
+  "judge_model": "claude-sonnet-5",
+  "rubric_version": "v1",
+  "judged_at": "2026-09-28T15:04:42Z",
+  "verdicts": [
+    {
+      "ticket_id": "r001",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r002",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 1,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "greeting says '[Agent name]' and the whole draft is written in third person about 'the customer'/'the user' instead of replying to them — not usable as-is"
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 1,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "same third-person / wrong-greeting defect as the formal draft"
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r003",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 4,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "opening names the situation, but the body closely parallels formal's sentence structure with only light synonym swaps rather than independent phrasing"
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r004",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 1,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "greeting says '[Agent name]' and the whole draft is written in third person about 'the customer'/'the user' instead of replying to them — not usable as-is"
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 1,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "same third-person / wrong-greeting defect as the formal draft"
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r005",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 4,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "opening names the situation, but the body closely parallels formal's sentence structure with only light synonym swaps rather than independent phrasing"
+        },
+        {
+          "tone": "short",
+          "tone_score": 3,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "exceeds the v2 'two sentences maximum' rule (word count is within 50, but the draft runs 3-4 sentences)"
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r006",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 4,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "opening names the situation, but the body closely parallels formal's sentence structure with only light synonym swaps rather than independent phrasing"
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r007",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r008",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r009",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r010",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r011",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r012",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 4,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "opening names the situation, but the body closely parallels formal's sentence structure with only light synonym swaps rather than independent phrasing"
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r013",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r015",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 4,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "opening names the situation, but the body closely parallels formal's sentence structure with only light synonym swaps rather than independent phrasing"
+        },
+        {
+          "tone": "short",
+          "tone_score": 3,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "exceeds the v2 'two sentences maximum' rule (word count is within 50, but the draft runs 3-4 sentences)"
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r016",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 1,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "greeting says '[Agent name]' and the whole draft is written in third person about 'the customer'/'the user' instead of replying to them — not usable as-is"
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 1,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "same third-person / wrong-greeting defect as the formal draft"
+        },
+        {
+          "tone": "short",
+          "tone_score": 3,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "exceeds the v2 'two sentences maximum' rule (word count is within 50, but the draft runs 3-4 sentences)"
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r017",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 1,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "greeting says '[Agent name]' and the whole draft is written in third person about 'the customer'/'the user' instead of replying to them — not usable as-is"
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 1,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "same third-person / wrong-greeting defect as the formal draft"
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r018",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 4,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "opening names the situation, but the body closely parallels formal's sentence structure with only light synonym swaps rather than independent phrasing"
+        },
+        {
+          "tone": "short",
+          "tone_score": 3,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "exceeds the v2 'two sentences maximum' rule (word count is within 50, but the draft runs 3-4 sentences)"
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r019",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 1,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "greeting says '[Agent name]' and the whole draft is written in third person about 'the customer'/'the user' instead of replying to them — not usable as-is"
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 1,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "same third-person / wrong-greeting defect as the formal draft"
+        },
+        {
+          "tone": "short",
+          "tone_score": 3,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "exceeds the v2 'two sentences maximum' rule (word count is within 50, but the draft runs 3-4 sentences)"
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r020",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 4,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "opening names the situation, but the body closely parallels formal's sentence structure with only light synonym swaps rather than independent phrasing"
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r026",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 4,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "opening names the situation, but the body closely parallels formal's sentence structure with only light synonym swaps rather than independent phrasing"
+        },
+        {
+          "tone": "short",
+          "tone_score": 3,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "exceeds the v2 'two sentences maximum' rule (word count is within 50, but the draft runs 3-4 sentences)"
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r027",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 4,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "opening is distinct, but reuses one of formal's sentences almost verbatim"
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r028",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 1,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "greeting says '[Agent name]' and the whole draft is written in third person about 'the customer'/'the user' instead of replying to them — not usable as-is"
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 1,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "same third-person / wrong-greeting defect as the formal draft"
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r029",
+      "summary_accurate": true,
+      "distinct": false,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 3,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "reuses formal's core sentence word-for-word with only a one-line empathy opener added — not written in its own wording, despite v2's explicit rule against this"
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": "formal and empathetic read as the same reply with one sentence stitched on; short is genuinely different"
+    },
+    {
+      "ticket_id": "r030",
+      "summary_accurate": true,
+      "distinct": true,
+      "drafts": [
+        {
+          "tone": "formal",
+          "tone_score": 2,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "greeting says '[Agent name]' instead of '[Customer name]'; body is otherwise correctly addressed to the customer"
+        },
+        {
+          "tone": "empathetic",
+          "tone_score": 2,
+          "faithful": true,
+          "addresses_request": true,
+          "note": "greeting says '[Agent name]' instead of '[Customer name]'; body is otherwise correctly addressed to the customer"
+        },
+        {
+          "tone": "short",
+          "tone_score": 5,
+          "faithful": true,
+          "addresses_request": true,
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "ticket_id": "r014",
+      "summary_accurate": true,
+      "distinct": null,
+      "drafts": [],
+      "note": ""
+    },
+    {
+      "ticket_id": "r021",
+      "summary_accurate": true,
+      "distinct": null,
+      "drafts": [],
+      "note": ""
+    },
+    {
+      "ticket_id": "r022",
+      "summary_accurate": true,
+      "distinct": null,
+      "drafts": [],
+      "note": ""
+    },
+    {
+      "ticket_id": "r023",
+      "summary_accurate": true,
+      "distinct": null,
+      "drafts": [],
+      "note": "summary adds a short meta-observation about the KB not covering the balance-lookup question; the core ask is still stated accurately"
+    },
+    {
+      "ticket_id": "r024",
+      "summary_accurate": true,
+      "distinct": null,
+      "drafts": [],
+      "note": ""
+    },
+    {
+      "ticket_id": "r025",
+      "summary_accurate": true,
+      "distinct": null,
+      "drafts": [],
+      "note": "summary adds a short meta-observation about the KB not covering credit balances; the core ask is still stated accurately"
+    }
+  ]
+}
