@@ -5,6 +5,7 @@ loaded from `data/kb/`, so these tests don't drift with the real KB content.
 
 from support_ai.assistant.rules import judge, pre_generation_reasons
 from support_ai.assistant.schema import JudgmentReason, LLMReply, LLMSummary, Tone
+from support_ai.core.text import wrap_ticket
 from support_ai.kb.base import Article, KBHit, SearchResult
 
 ART_A = Article(
@@ -110,6 +111,9 @@ def test_judge_kb_quote_unverified_when_cited_id_not_retrieved():
     assert result.reasons == [JudgmentReason.KB_QUOTE_UNVERIFIED]
     assert result.drafts == []
     assert result.kb_source is None
+    # logged so the eval can see *why* it was rejected, not just that it was (see r014).
+    assert len(result.dropped_evidence) == 1
+    assert "art-not-retrieved" in result.dropped_evidence[0]
 
 
 def test_judge_kb_quote_unverified_when_quote_is_a_paraphrase():
@@ -119,6 +123,24 @@ def test_judge_kb_quote_unverified_when_quote_is_a_paraphrase():
     assert result.reasons == [JudgmentReason.KB_QUOTE_UNVERIFIED]
     assert result.drafts == []
     assert result.kb_source is None
+    assert len(result.dropped_evidence) == 1
+    assert "art-a" in result.dropped_evidence[0]
+    assert "Go to your settings and hit save to update your name" in result.dropped_evidence[0]
+
+
+def test_judge_kb_quote_with_prompt_markers_still_verifies_and_is_stored_stripped():
+    """The model can echo a whole `<<<KB ...>>>` block instead of copying just the quoted
+    sentence — markers must be stripped before verifying, and the stored quote is the
+    stripped text."""
+    quote_with_markers = (
+        "<<<KB id=art-a title=Article A>>>\nOpen Profile → Settings and tap Save\n<<<END KB>>>"
+    )
+    reply = _reply(kb_quote=quote_with_markers)
+    result = judge(ticket="anything", search=SEARCH, reply=reply, pre_reasons=[])
+
+    assert result.reasons == []
+    assert result.kb_source is not None
+    assert result.kb_source.quote == "Open Profile → Settings and tap Save"
 
 
 # --- judge: account_specific ---------------------------------------------------------------
@@ -136,6 +158,19 @@ def test_judge_account_specific_kept_when_evidence_verifies_and_kb_source_still_
     # so the agent can still see it.
     assert result.kb_source is not None
     assert result.kb_source.article_id == "art-a"
+
+
+def test_judge_account_specific_evidence_with_prompt_markers_still_verifies():
+    """The model can accidentally report the whole wrapped ticket (markers included) as
+    evidence instead of a short quote from it — markers must be stripped before verifying,
+    and the stored evidence is the stripped text (see r026)."""
+    ticket = "My Premium access just stopped working yesterday out of nowhere."
+    reply = _reply(account_specific_evidence=wrap_ticket(ticket))
+    result = judge(ticket=ticket, search=SEARCH, reply=reply, pre_reasons=[])
+
+    assert result.reasons == [JudgmentReason.ACCOUNT_SPECIFIC]
+    assert result.account_specific_evidence == ticket
+    assert "<<<TICKET>>>" not in result.account_specific_evidence
 
 
 def test_judge_account_specific_evidence_dropped_when_not_found_in_ticket():
@@ -156,16 +191,32 @@ def test_judge_account_specific_evidence_dropped_when_not_found_in_ticket():
 
 
 def test_judge_conflicting_kb_kept_when_two_distinct_retrieved_ids():
+    # default _reply() cites "art-a"; the conflict set includes it too (see below).
     reply = _reply(conflicting_article_ids=["art-b", "art-c"])
     result = judge(ticket="anything", search=SEARCH, reply=reply, pre_reasons=[])
 
     assert result.reasons == [JudgmentReason.CONFLICTING_KB]
-    assert set(result.conflicting_article_ids) == {"art-b", "art-c"}
+    assert set(result.conflicting_article_ids) == {"art-a", "art-b", "art-c"}
     assert result.drafts == []
 
 
-def test_judge_conflicting_kb_dropped_when_only_one_id():
+def test_judge_conflicting_kb_includes_the_cited_article_even_when_not_repeated():
+    """The model cites "art-a" but names only the *other* side of the conflict
+    ("art-b") in `conflicting_article_ids` — it doesn't always repeat its own citation
+    there. That's still a reported 2-way conflict (art-a vs art-b), so it must be kept,
+    with the full set (cited id included) returned — this is the r028/r029 fix."""
     reply = _reply(conflicting_article_ids=["art-b"])
+    result = judge(ticket="anything", search=SEARCH, reply=reply, pre_reasons=[])
+
+    assert result.reasons == [JudgmentReason.CONFLICTING_KB]
+    assert set(result.conflicting_article_ids) == {"art-a", "art-b"}
+    assert result.drafts == []
+
+
+def test_judge_conflicting_kb_dropped_when_still_only_one_distinct_id():
+    # The model names only the article it already cited as "conflicting" — still just 1
+    # distinct id once deduped, so there's no second side to the conflict.
+    reply = _reply(conflicting_article_ids=["art-a"])
     result = judge(ticket="anything", search=SEARCH, reply=reply, pre_reasons=[])
 
     assert result.reasons == []
@@ -181,6 +232,17 @@ def test_judge_conflicting_kb_dropped_when_an_id_was_not_retrieved():
     assert result.reasons == []
     assert result.conflicting_article_ids == []
     assert len(result.dropped_evidence) == 1
+    assert len(result.drafts) == 3
+
+
+def test_judge_conflicting_kb_not_flagged_when_model_reports_no_conflict():
+    # Citing an article alone must never manufacture a conflict out of thin air.
+    reply = _reply(conflicting_article_ids=[])
+    result = judge(ticket="anything", search=SEARCH, reply=reply, pre_reasons=[])
+
+    assert result.reasons == []
+    assert result.conflicting_article_ids == []
+    assert result.dropped_evidence == []
     assert len(result.drafts) == 3
 
 

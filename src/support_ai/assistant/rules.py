@@ -17,7 +17,7 @@ from support_ai.assistant.schema import (
     LLMSummary,
     Tone,
 )
-from support_ai.core.text import quote_in_text
+from support_ai.core.text import quote_in_text, strip_markers
 from support_ai.kb.base import SearchResult
 
 
@@ -57,9 +57,10 @@ def judge(
     if reply is None:
         reasons.append(JudgmentReason.GENERATION_FAILED)
     elif isinstance(reply, LLMReply):
-        kb_source, kb_reason = _verify_kb_source(reply, search)
+        kb_source, kb_reason, kb_dropped = _verify_kb_source(reply, search)
         if kb_reason is not None:
             reasons.append(kb_reason)
+        dropped_evidence.extend(kb_dropped)
 
         account_specific_evidence, evidence_reason, evidence_dropped = _verify_evidence(
             reply.account_specific_evidence, ticket
@@ -69,7 +70,7 @@ def judge(
         dropped_evidence.extend(evidence_dropped)
 
         conflicting_article_ids, conflict_reason, conflict_dropped = _verify_conflicts(
-            reply.conflicting_article_ids, search
+            reply.conflicting_article_ids, reply.kb_article_id, search
         )
         if conflict_reason is not None:
             reasons.append(conflict_reason)
@@ -91,60 +92,69 @@ def judge(
 
 def _verify_kb_source(
     reply: LLMReply, search: SearchResult | None
-) -> tuple[KBSource | None, JudgmentReason | None]:
+) -> tuple[KBSource | None, JudgmentReason | None, list[str]]:
     """Verify the cited article and its quote (the `kb_not_found` / `kb_quote_unverified`
     rows): the model cited no article, the cited article isn't among the retrieved hits, or
-    the quote doesn't verify against that article's text.
+    the quote doesn't verify against that article's text. Markers are stripped from
+    `kb_quote` before verifying (and from the stored quote) in case the model echoed a
+    whole wrapped block instead of copying the article text.
+
+    A cited-but-rejected quote is logged in the returned dropped-evidence list (cited id +
+    raw quote) so the eval can see what was rejected, not just that something was.
     """
     if reply.kb_article_id is None:
-        return None, JudgmentReason.KB_NOT_FOUND
+        return None, JudgmentReason.KB_NOT_FOUND, []
 
     hit = search.get_hit(reply.kb_article_id) if search is not None else None
-    quote_ok = (
-        hit is not None
-        and reply.kb_quote is not None
-        and quote_in_text(reply.kb_quote, hit.article.text)
-    )
-    if not quote_ok:
-        return None, JudgmentReason.KB_QUOTE_UNVERIFIED
+    quote = strip_markers(reply.kb_quote) if reply.kb_quote is not None else None
+    if hit is not None and quote is not None and quote_in_text(quote, hit.article.text):
+        kb_source = KBSource(
+            article_id=hit.article.id, title=hit.article.title, quote=quote, text=hit.article.text
+        )
+        return kb_source, None, []
 
-    kb_source = KBSource(
-        article_id=hit.article.id,
-        title=hit.article.title,
-        quote=reply.kb_quote,
-        text=hit.article.text,
-    )
-    return kb_source, None
+    dropped = [f"kb_quote unverified for {reply.kb_article_id!r}: {reply.kb_quote!r}"]
+    return None, JudgmentReason.KB_QUOTE_UNVERIFIED, dropped
 
 
 def _verify_evidence(
     evidence: str | None, ticket: str
 ) -> tuple[str | None, JudgmentReason | None, list[str]]:
     """Verify `account_specific_evidence` is really a quote from `ticket` (the
-    `account_specific` row). Unverified (but non-null) evidence is dropped, not trusted: a
-    made-up quote is no proof the answer depends on the customer's own account.
+    `account_specific` row). Markers are stripped before verifying (and from the stored
+    evidence) in case the model echoed the whole wrapped ticket block instead of a short
+    quote from it. Unverified (but non-null) evidence is dropped, not trusted: a made-up
+    quote is no proof the answer depends on the customer's own account.
     """
     if evidence is None:
         return None, None, []
-    if quote_in_text(evidence, ticket):
-        return evidence, JudgmentReason.ACCOUNT_SPECIFIC, []
+    stripped = strip_markers(evidence)
+    if quote_in_text(stripped, ticket):
+        return stripped, JudgmentReason.ACCOUNT_SPECIFIC, []
     return None, None, [f"account_specific_evidence not found in ticket: {evidence!r}"]
 
 
 def _verify_conflicts(
-    conflicting_ids: list[str], search: SearchResult | None
+    conflicting_ids: list[str], cited_id: str | None, search: SearchResult | None
 ) -> tuple[list[str], JudgmentReason | None, list[str]]:
-    """Verify `conflicting_article_ids` (the `conflicting_kb` row): at least 2 distinct ids,
-    all among the retrieved hits. Anything short of that is dropped, not trusted.
+    """Verify the conflict set (the `conflicting_kb` row): `conflicting_article_ids` plus
+    the cited article itself, deduped — the model doesn't always repeat `kb_article_id`
+    inside `conflicting_article_ids` even when it's one side of the conflict it's
+    reporting, so the set it names is completed with the id it cited. At least 2 distinct
+    ids, all among the retrieved hits. Anything short of that is dropped, not trusted; a
+    reply that names no conflict at all (`conflicting_ids` empty) is never flagged just
+    because it happens to cite an article.
     """
-    distinct = list(dict.fromkeys(conflicting_ids))  # de-dupe, preserve order
+    if not conflicting_ids:
+        return [], None, []
+
+    ids = [*conflicting_ids, *([cited_id] if cited_id is not None else [])]
+    distinct = list(dict.fromkeys(ids))  # de-dupe, preserve order
     retrieved_ids = {hit.article.id for hit in search.hits} if search is not None else set()
 
     if len(distinct) >= 2 and all(article_id in retrieved_ids for article_id in distinct):
         return distinct, JudgmentReason.CONFLICTING_KB, []
-    if distinct:
-        return [], None, [f"conflicting_article_ids not usable: {distinct!r}"]
-    return [], None, []
+    return [], None, [f"conflicting_article_ids not usable: {distinct!r}"]
 
 
 def _build_drafts(reply: LLMReply | LLMSummary | None) -> list[Draft]:

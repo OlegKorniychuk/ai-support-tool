@@ -1,6 +1,6 @@
 import pytest
 
-from support_ai.core.text import normalize, quote_in_text, wrap_ticket
+from support_ai.core.text import normalize, quote_in_text, strip_markers, wrap_ticket
 
 TEXT = "I can't log in at all since the update. Please fix it!"
 
@@ -55,3 +55,29 @@ def test_quote_in_text_is_generic_beyond_tickets():
     article = "Open Profile → Birth details and tap the time field to edit it."
     assert quote_in_text("Open Profile → Birth details and tap the time field", article)
     assert not quote_in_text("Open Settings and edit birth time", article)
+
+
+def test_strip_markers_drops_whole_wrapped_ticket_block():
+    whole_block = wrap_ticket("My Premium access just stopped working yesterday.")
+    assert strip_markers(whole_block) == "My Premium access just stopped working yesterday."
+
+
+def test_strip_markers_drops_kb_block_markers():
+    kb_block = "<<<KB id=edit-birth-data title=Edit birth data>>>\nBody text.\n<<<END KB>>>"
+    assert strip_markers(kb_block) == "Body text."
+
+
+def test_strip_markers_leaves_plain_text_untouched():
+    assert strip_markers("Just a normal quote, no markers here.") == (
+        "Just a normal quote, no markers here."
+    )
+
+
+def test_strip_markers_removes_inline_marker_not_on_its_own_line():
+    assert strip_markers("before <<<TICKET>>> after") == "before  after"
+
+
+def test_strip_markers_result_still_verifies_with_quote_in_text():
+    evidence = wrap_ticket("I was charged twice on March 3rd for my subscription.")
+    stripped = strip_markers(evidence)
+    assert quote_in_text("charged twice on March 3rd", stripped)

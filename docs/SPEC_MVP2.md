@@ -153,7 +153,7 @@ applies; then **no drafts are shown**.
 | `kb_not_found` | adapter reports no match (`has_match = false`), or model cited no article | a reply would have to invent policy |
 | `kb_quote_unverified` | quote not found (normalized) in the cited article, or cited article not among the retrieved | the draft may rest on a made-up fact |
 | `account_specific` | `account_specific_evidence` is found (normalized) in the ticket | the tool can't see the customer's account; only the agent can check it |
-| `conflicting_kb` | ≥ 2 distinct `conflicting_article_ids`, all among the retrieved | the KB contradicts itself; the agent picks the right answer and reports the conflict |
+| `conflicting_kb` | ≥ 2 distinct ids among `conflicting_article_ids` plus the cited `kb_article_id`, all among the retrieved | the KB contradicts itself; the agent picks the right answer and reports the conflict |
 | `retrieval_failed` | embedding call failed after retries | no KB grounding |
 | `generation_failed` | reply call failed on every model | no drafts to offer |
 
