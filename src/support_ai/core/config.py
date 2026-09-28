@@ -92,6 +92,15 @@ KB_MIN_SCORE: float = 0.3
 KB_DIR: Path = Path(__file__).resolve().parents[3] / "data" / "kb"
 KB_CACHE_PATH: Path = Path(__file__).resolve().parents[3] / ".cache" / "kb_embeddings.json"
 
+# Cheapest first, as DEFAULT_MODEL_CHAIN; the default is the cheapest model that meets the
+# targets after the Task 19 comparison (as in MVP 1).
+DEFAULT_REPLY_CHAIN: list[str] = ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5"]
+DEFAULT_REPLY_PROMPT_VERSION: str = "v1"
+SUMMARY_PROMPT_VERSION: str = "v1"
+# The `short` tone's own word-count rule; `test_reply_prompts.py` checks the prompt states
+# this same number, so changing either alone fails the contract test.
+SHORT_MAX_WORDS: int = 50
+
 
 def get_api_key() -> str | None:
     """Read OPENAI_API_KEY from the environment (`.env` locally) or `st.secrets` when deployed."""
