@@ -91,8 +91,12 @@ def human_review_precision(records: list[EvalRecord]) -> float:
     return sum(r.expected_needs_review for r in flagged) / len(flagged)
 
 
-def _percentile(values: list[float], pct: float) -> float:
-    """Nearest-rank percentile. `pct` is a fraction in [0, 1]."""
+def percentile(values: list[float], pct: float) -> float:
+    """Nearest-rank percentile. `pct` is a fraction in [0, 1].
+
+    Public: `eval/reply_metrics.py` reuses this for the reply assistant's latency metrics
+    instead of duplicating it.
+    """
     if not values:
         return 0.0
     ordered = sorted(values)
@@ -101,11 +105,11 @@ def _percentile(values: list[float], pct: float) -> float:
 
 
 def latency_p50(records: list[EvalRecord]) -> float:
-    return _percentile([r.latency_ms for r in records], 0.50)
+    return percentile([r.latency_ms for r in records], 0.50)
 
 
 def latency_p95(records: list[EvalRecord]) -> float:
-    return _percentile([r.latency_ms for r in records], 0.95)
+    return percentile([r.latency_ms for r in records], 0.95)
 
 
 def cache_hit_rate(records: list[EvalRecord]) -> float:
