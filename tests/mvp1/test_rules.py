@@ -5,7 +5,6 @@ from support_ai.classifier.rules import (
     PRIORITY_TABLE,
     apply_rules,
     compute_priority,
-    evidence_in_ticket,
 )
 from support_ai.classifier.schema import Category, LLMClassification, NextStep, Priority
 
@@ -49,24 +48,6 @@ def test_compute_priority_follows_the_table(pair, bounds):
 def test_compute_priority_for_an_invalid_pair():
     priority = compute_priority(Category.THREAT, NextStep.SEND_KB_ANSWER, raised=True)
     assert priority is INVALID_PAIR_PRIORITY
-
-
-@pytest.mark.parametrize(
-    "evidence",
-    [
-        "I can't log in at all",
-        "i CAN'T   log in at all",
-        '"I can\'t log in at all."',
-        "“I can't log in at all since the update…”",
-    ],
-)
-def test_evidence_matcher_tolerates_case_whitespace_and_quote_marks(evidence):
-    assert evidence_in_ticket(evidence, TICKET)
-
-
-@pytest.mark.parametrize("evidence", ["I cannot log in", "the app is broken", "", "  ...  "])
-def test_evidence_matcher_rejects_paraphrases_and_empty_quotes(evidence):
-    assert not evidence_in_ticket(evidence, TICKET)
 
 
 def test_no_evidence_gives_base_priority():

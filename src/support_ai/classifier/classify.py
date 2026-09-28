@@ -21,6 +21,7 @@ from support_ai.core.config import DEFAULT_MODEL_CHAIN, DEFAULT_PROMPT_VERSION, 
 from support_ai.core.cost import cost_for_usage
 from support_ai.core.llm.base import Usage
 from support_ai.core.llm.gateway import AllModelsFailed, Attempt, complete_with_fallback
+from support_ai.core.text import wrap_ticket
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 
@@ -46,11 +47,6 @@ def render_prompt(prompt_version: str) -> str:
     """
     path = PROMPTS_DIR / f"{prompt_version}.md"
     return path.read_text()
-
-
-def _wrap_ticket(ticket: str) -> str:
-    """Wrap the raw ticket text in a delimited block, as a guard against prompt injection."""
-    return f"<<<TICKET>>>\n{ticket}\n<<<END TICKET>>>"
 
 
 def _fallback_result(attempts: list[Attempt] | None = None) -> ClassifyResult:
@@ -120,7 +116,7 @@ def classify(
         return _empty_result()
 
     system = render_prompt(prompt_version)
-    user = _wrap_ticket(ticket)
+    user = wrap_ticket(ticket)
     chain = [MODEL_REGISTRY[model_id] for model_id in (model_chain or DEFAULT_MODEL_CHAIN)]
 
     try:

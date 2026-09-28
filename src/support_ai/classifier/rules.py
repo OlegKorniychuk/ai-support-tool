@@ -5,8 +5,6 @@ LLM's other output fields, the ticket text, and whether the call ultimately fail
 See SPEC.md, D1.7.
 """
 
-import re
-
 from support_ai.classifier.schema import (
     Category,
     Classification,
@@ -14,6 +12,7 @@ from support_ai.classifier.schema import (
     NextStep,
     Priority,
 )
+from support_ai.core.text import quote_in_text
 
 # Every valid (category, response) pair, with its base priority and the priority a stated
 # fact raises it to. Mirrors the table in the current prompt; test_prompts.py checks the
@@ -40,22 +39,6 @@ PRIORITY_TABLE: dict[tuple[Category, NextStep], tuple[Priority, Priority]] = {
 # Priority for a (category, next_step) pair the table doesn't know. Such a ticket is also
 # flagged for review, so this only orders it in the queue: same as `other` / escalate.
 INVALID_PAIR_PRIORITY = Priority.P3
-
-_QUOTE_EDGES = " \t\n\"'“”‘’«»….,;:!?"
-
-
-def _normalize(text: str) -> str:
-    return re.sub(r"\s+", " ", text).strip().casefold()
-
-
-def evidence_in_ticket(evidence: str, ticket: str) -> bool:
-    """True if `evidence` is a verbatim quote from `ticket`.
-
-    Lenient only about what quoting typically changes: case, runs of whitespace, and
-    surrounding quote marks, ellipses or punctuation. Paraphrases do not match.
-    """
-    quote = _normalize(evidence).strip(_QUOTE_EDGES)
-    return bool(quote) and quote in _normalize(ticket)
 
 
 def compute_priority(category: Category, next_step: NextStep, *, raised: bool) -> Priority:
@@ -92,7 +75,7 @@ def apply_rules(
         bounds is not None
         and bounds[0] != bounds[1]
         and evidence is not None
-        and evidence_in_ticket(evidence, ticket)
+        and quote_in_text(evidence, ticket)
     )
 
     if classification.next_step is NextStep.ESCALATE_HUMAN:
