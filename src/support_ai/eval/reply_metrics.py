@@ -24,6 +24,7 @@ class ReplyEvalRecord(BaseModel):
     """One ticket's expected-vs-actual outcome from one reply-assistant eval run."""
 
     ticket_id: str
+    ticket_text: str  # the judge reads this alongside the summary and drafts
     tags: list[str]
     expected_kb_ids: list[str]
     retrieved_ids: list[str]  # hit order, best first
@@ -34,6 +35,7 @@ class ReplyEvalRecord(BaseModel):
     actual_reasons: list[str]
     dropped_evidence: list[str] = []
     summary: str
+    kb_quote: str | None = None  # the verified `kb_source` quote, or None
     drafts: dict[str, str] = {}  # tone -> text; empty when drafts weren't shown
     tone_check: ToneCheck | None = None
     latency_ms: int

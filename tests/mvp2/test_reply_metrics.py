@@ -37,6 +37,7 @@ def _check(*, short_ok=True, formal_ok=True, distinct_ok=True) -> ToneCheck:
 def _record(**overrides) -> ReplyEvalRecord:
     defaults = dict(
         ticket_id="r001",
+        ticket_text="How do I change my birth time in my profile?",
         tags=["answerable"],
         expected_kb_ids=["edit-birth-data"],
         retrieved_ids=["edit-birth-data"],
@@ -46,6 +47,7 @@ def _record(**overrides) -> ReplyEvalRecord:
         expected_reasons=[],
         actual_reasons=[],
         summary="Customer asks how to change their birth time.",
+        kb_quote="Open Profile → Birth details",
         latency_ms=500,
         input_tokens=200,
         output_tokens=100,

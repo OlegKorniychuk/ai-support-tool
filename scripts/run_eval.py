@@ -8,7 +8,6 @@ Usage: uv run python scripts/run_eval.py --model gpt-5.4-nano [--prompt v5] [--l
 """
 
 import argparse
-import csv
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -29,6 +28,7 @@ from support_ai.eval.metrics import (
     next_step_accuracy,
     priority_accuracy,
 )
+from support_ai.eval.summary_csv import append_row, upgrade_header
 
 RESULTS_DIR = Path(__file__).resolve().parents[1] / "results"
 # New columns (`human_review_precision`, `cache_hit_rate`, `next_step_accuracy`) are
@@ -89,36 +89,15 @@ def _write_json(records: list[EvalRecord], path: Path) -> None:
 
 
 def _upgrade_summary_header(summary_path: Path) -> None:
-    """Widen an older summary.csv's header to `SUMMARY_COLUMNS`, in place if needed.
-
-    New columns are always appended at the *end* of `SUMMARY_COLUMNS`, so older rows
-    (which don't have them) still parse correctly: pandas pads missing trailing fields
-    with NaN rather than misaligning the row. This only ever rewrites the header line —
-    every existing data row is left byte-for-byte untouched, per CLAUDE.md/SPEC.md's
-    "never... rewrite... eval results".
-    """
-    if not summary_path.exists():
-        return
-    lines = summary_path.read_text(encoding="utf-8").splitlines(keepends=True)
-    if not lines:
-        return
-    current_header = next(csv.reader([lines[0]]))
-    if current_header == SUMMARY_COLUMNS:
-        return
-    if not set(current_header).issubset(SUMMARY_COLUMNS):
-        raise ValueError(
-            f"{summary_path} has an unrecognized header {current_header}; refusing to touch it"
-        )
-    lines[0] = ",".join(SUMMARY_COLUMNS) + "\n"
-    summary_path.write_text("".join(lines), encoding="utf-8")
+    """Thin call-through to the shared helper (`eval/summary_csv.py`), kept so existing
+    callers/tests naming this private function don't need to pass `SUMMARY_COLUMNS`."""
+    upgrade_header(summary_path, SUMMARY_COLUMNS)
 
 
 def _append_summary_row(
     model: str, prompt_version: str, timestamp: str, records: list[EvalRecord]
 ) -> None:
     summary_path = RESULTS_DIR / "summary.csv"
-    _upgrade_summary_header(summary_path)
-    is_new_file = not summary_path.exists()
     per_ticket_cost = cost_per_ticket(records)
     row = {
         "timestamp": timestamp,
@@ -136,11 +115,7 @@ def _append_summary_row(
         "cache_hit_rate": round(cache_hit_rate(records), 4),
         "next_step_accuracy": round(next_step_accuracy(records), 4),
     }
-    with summary_path.open("a", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=SUMMARY_COLUMNS)
-        if is_new_file:
-            writer.writeheader()
-        writer.writerow(row)
+    append_row(summary_path, SUMMARY_COLUMNS, row)
 
 
 def main() -> None:
