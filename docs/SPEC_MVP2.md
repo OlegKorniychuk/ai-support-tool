@@ -51,8 +51,8 @@ expected labels are instead the KB article(s) and the human-judgment flag + reas
 ### Pipeline
 
 ```
-ticket → retrieve: embed ticket → cosine vs KB index → top-3 + scores
-       → pre-generation rules (code): retrieval failed or best score < KB_MIN_SCORE?
+ticket → retrieve: KnowledgeBase.search(ticket, k=KB_TOP_K) → top-3 hits + has_match
+       → pre-generation rules (code): retrieval failed or has_match is false?
        → generate: "full" (summary, KB citation, judgment evidence, 3 drafts)
                    or "summary_only" (summary) when already flagged
        → post-generation rules (code): verify quote, evidence, conflict ids; hide drafts if flagged
@@ -64,17 +64,32 @@ flag, no drafts.
 
 ### Retrieval (D2.1)
 
-- KB: `data/kb/<id>.md`, a `key: value` header (`id`, `title`, `tags`) above `---`, then the
-  body. Parsed by a small own function (no YAML dependency).
-- Index: each article (title + body) embedded with `text-embedding-3-small`. Ticket embedded
-  per request. Cosine similarity in pure Python (20 vectors; no numpy dependency). Top-3
-  (`KB_TOP_K`) passed to the generator with scores.
+- Retrieval lives behind a swappable interface, `src/support_ai/kb/`, not inside
+  `assistant/`. `kb/base.py` defines the data types — `Article(id, title, text, tags)`,
+  `KBHit(article, score)`, `SearchResult(hits, has_match, latency_ms, cost_usd,
+  usage | None, attempts)`, `RetrievalError` — and a `KnowledgeBase` protocol with one
+  method, `search(query, *, k) -> SearchResult`. The interface is search-only; each backend
+  owns its own ingestion. A registry (`register_knowledge_base(name, factory)` /
+  `get_knowledge_base()`, keyed by `KB_BACKEND` in `config.py`, lazy and memoized — the same
+  pattern as `core/llm/base.py`'s provider registry) picks the active backend. `assistant/`
+  only imports `kb/base.py` and calls `get_knowledge_base().search(...)`.
+- `kb/loader.py`: `data/kb/<id>.md`, a `key: value` header (`id`, `title`, `tags`) above
+  `---`, then the body. Parsed by a small own function (no YAML dependency).
+- `kb/in_memory.py` is the default adapter (`KB_BACKEND=in_memory`): builds an index from
+  `kb/loader.py` articles (title + body) embedded with `text-embedding-3-small`, cached on
+  disk in `.cache/kb_embeddings.json` (key = sha256(article text) + embedding model id).
+  Ticket embedded per request. Cosine similarity in pure Python (20 vectors; no numpy
+  dependency). Returns the top-`KB_TOP_K` hits with scores. Swapping to a real vector DB is a
+  new `kb/<backend>.py` implementing the same protocol, its own offline ingestion script, and
+  a `KB_BACKEND` change — nothing in `assistant/` changes.
 - Why embeddings: non-English tickets match English articles; retrieval is a separate,
   measurable step (hit@3); scales past what fits in a prompt. Rejected: whole KB in prompt
   (doesn't scale, nothing to evaluate), keyword/BM25 (fails across languages), fixed
   topic → article map (brittle for varied how-to questions).
-- `KB_MIN_SCORE`: best score below it → `kb_not_found` before generation (summary-only call,
-  cheaper). Value calibrated on the test set and recorded in `config.py`.
+- `has_match` is decided by the adapter, not the pipeline, because score scales differ per
+  backend. For `in_memory`, `KB_MIN_SCORE` is the adapter's own setting: best score below it
+  → `has_match = false`. Calibrated on the test set with `scripts/kb_scores.py` and recorded
+  in `config.py`.
 
 ### Knowledge base (~20 articles)
 
@@ -135,7 +150,7 @@ applies; then **no drafts are shown**.
 
 | Reason | When (checked by code) | Why the agent must decide |
 |---|---|---|
-| `kb_not_found` | best retrieval score < `KB_MIN_SCORE`, or model cited no article | a reply would have to invent policy |
+| `kb_not_found` | adapter reports no match (`has_match = false`), or model cited no article | a reply would have to invent policy |
 | `kb_quote_unverified` | quote not found (normalized) in the cited article, or cited article not among the retrieved | the draft may rest on a made-up fact |
 | `account_specific` | `account_specific_evidence` is found (normalized) in the ticket | the tool can't see the customer's account; only the agent can check it |
 | `conflicting_kb` | ≥ 2 distinct `conflicting_article_ids`, all among the retrieved | the KB contradicts itself; the agent picks the right answer and reports the conflict |
@@ -180,6 +195,8 @@ Assist one:   uv run python scripts/assist_one.py "How do I change my birth time
 Reply eval:   uv run python scripts/run_reply_eval.py --model gpt-5.4-nano [--limit 5]
 Judge a run:  /judge-replies results/reply/<run>.json          (in Claude Code)
 Record judge: uv run python scripts/record_judgement.py results/reply/<run>.judge.json
+KB threshold: uv run python scripts/kb_scores.py
+Judge agree:  uv run python scripts/judge_agreement.py
 ```
 
 ## Project Structure
@@ -195,33 +212,50 @@ pages/
 src/support_ai/
   core/
     config.py                 → + EMBEDDING_MODEL, DEFAULT_REPLY_CHAIN,
-                                 DEFAULT_REPLY_PROMPT_VERSION, KB_TOP_K, KB_MIN_SCORE,
-                                 SHORT_MAX_WORDS (changed)
-    text.py                   → wrap_ticket + quote normalization/verification, moved from
+                                 DEFAULT_REPLY_PROMPT_VERSION, KB_BACKEND, KB_TOP_K,
+                                 KB_MIN_SCORE (in-memory adapter setting), SHORT_MAX_WORDS
+                                 (changed)
+    text.py                   → wrap_ticket, normalize, quote_in_text — moved from
                                  classifier (classifier imports them; behavior unchanged)
     llm/base.py               → + `embed()` on LLMProvider, EmbeddingResult (changed)
     llm/gateway.py            → + embed_with_retry (same retry budgets, no model fallback) (changed)
     llm/openai_provider.py    → + embeddings call + error mapping (changed)
+  kb/                         → swappable retrieval package (new); assistant/ imports only
+                                 kb/base.py
+    base.py                   → Article, KBHit, SearchResult, RetrievalError, KnowledgeBase
+                                 protocol; register_knowledge_base/get_knowledge_base
+                                 registry keyed by KB_BACKEND
+    loader.py                 → parses data/kb/*.md headers + body
+    in_memory.py              → default adapter: embeds via the gateway, KB_MIN_SCORE
+                                 threshold, .cache/kb_embeddings.json cache, pure-Python
+                                 cosine
   assistant/
-    schema.py                 → LLMReply, LLMSummary, Draft, KBSource, AssistResult, JudgeVerdict
-    kb.py                     → load articles, build/cached index, retrieve top-k
+    schema.py                 → LLMReply, LLMSummary, Draft, KBSource, AssistResult
     rules.py                  → human-judgment rules, evidence/quote/conflict verification
     assist.py                 → the pipeline; never raises
     tone_checks.py            → deterministic draft checks (word count, contractions, overlap)
     dataset.py                → ReplyCase loader for data/reply_tickets.jsonl
     prompts/reply_v1.md, summary_v1.md
   eval/
+    metrics.py                → `_percentile` becomes public `percentile` (changed)
     reply_metrics.py          → pure metric functions incl. judge aggregates
+    summary_csv.py            → shared summary.csv read/append helpers, used by both eval
+                                 scripts
+    judge.py                  → JudgeVerdict schema (judge output)
 scripts/
-  assist_one.py, run_reply_eval.py, record_judgement.py
+  assist_one.py, run_reply_eval.py, record_judgement.py, kb_scores.py, judge_agreement.py
 .claude/skills/judge-replies/
-  SKILL.md                    → Sonnet judge: read run → write <run>.judge.json → run recorder
+  SKILL.md                    → committed repo skill (project-scoped, versioned in git,
+                                 `model: sonnet`): read run → write <run>.judge.json → run
+                                 recorder
   rubric.md                   → judge rubric (tone definitions shared with reply_v1.md)
 data/
   kb/*.md                     → ~20 synthetic articles
   reply_tickets.jsonl         → 30 general-question tickets
 .cache/                       → KB embedding cache (gitignored)
-results/reply/                → runs, *.judge.json, summary.csv (committed)
+results/reply/                → runs, *.judge.json, summary.csv, judge_summary.csv
+                                 (append-only, joined to summary.csv by run name),
+                                 hand_scores.csv (committed)
 docs/SPEC_MVP2.md             → this spec
 README.md                     → + MVP 2 part (Ukrainian): D2.1–D2.6, X1–X5 for MVP 2
 ```
@@ -236,7 +270,7 @@ def assist(ticket: str, *, reply_chain: list[str] | None = None, ...) -> AssistR
     """Summarize, ground and draft replies for one general question. Never raises."""
     if not ticket.strip():
         return _empty_result()
-    retrieval = retrieve(ticket)
+    retrieval = get_knowledge_base().search(ticket, k=KB_TOP_K)
     reasons = pre_generation_reasons(retrieval)
     mode = "summary_only" if reasons else "full"
     reply = _generate(ticket, retrieval, mode=mode, chain=reply_chain)
@@ -288,8 +322,9 @@ judging on Claude instead of OpenAI.
   - prompt ↔ code contract: `SHORT_MAX_WORDS` and tone names match in `reply_v1.md`,
     skill `rubric.md` and config/schema
   - dataset labels: every `expected_kb_ids` exists in `data/kb/`; reasons are valid names
-  - reply metrics, `results/reply/summary.csv` writer, `record_judgement.py` validation
-    (unknown ticket ids, missing tickets, bad scores rejected)
+  - reply metrics, `eval/summary_csv.py` writer/reader shared by both eval scripts,
+    `record_judgement.py` validation (unknown ticket ids, missing tickets, bad scores
+    rejected) and its `judge_summary.csv` append
   - embeddings error mapping in `openai_provider.py` (mocked SDK)
   - pages 3 and 4 render (`AppTest`)
 - **Reply eval (OpenAI, manual):** `scripts/run_reply_eval.py --model X` over 30 tickets,
@@ -298,17 +333,25 @@ judging on Claude instead of OpenAI.
   latency, tokens, cost. Writes `results/reply/<model>_<prompt>_<ts>.json` + a
   `summary.csv` row.
 - **Judge (Claude Code skill `/judge-replies`, Sonnet, no OpenAI tokens):**
+  - The skill is a committed repo file, `.claude/skills/judge-replies/{SKILL.md,rubric.md}`
+    (project-scoped, versioned in git like prompts, `model: sonnet` in frontmatter) — not a
+    user-level skill. Anyone who opens the repo in Claude Code gets `/judge-replies`.
   - Runs on Sonnet (skill frontmatter `model`; if unsupported, the skill delegates to a
     Sonnet subagent — confirmed at implementation).
   - Reads the run file and cited KB articles; per drafted ticket scores each draft:
     `tone_score` 1–5, `faithful` (no claim outside ticket + cited article),
     `addresses_request`; per ticket `distinct` (tones differ, not just wording); for every
     ticket `summary_accurate`.
-  - Writes `results/reply/<run>.judge.json` (`JudgeVerdict` schema, with judge model and
-    rubric version), then runs `record_judgement.py`, which validates it with pydantic and
-    adds judge metrics to that run's `summary.csv` row.
-  - Calibrated against the author's hand scores on 10 tickets (30 drafts); agreement goes in
-    README. A different vendor judging OpenAI drafts avoids self-preference bias.
+  - Writes `results/reply/<run>.judge.json` (`JudgeVerdict` schema, defined in
+    `src/support_ai/eval/judge.py`, with judge model and rubric version), then runs
+    `record_judgement.py`, which validates it with pydantic and **appends** a row to
+    `results/reply/judge_summary.csv` (joined to that run's `summary.csv` row by run name) —
+    judge results are append-only, like the rest of the eval results; `summary.csv` rows are
+    never rewritten.
+  - Calibrated against the author's hand scores on 10 tickets (30 drafts), scored in chat
+    with Claude and recorded to `results/reply/hand_scores.csv`; `scripts/judge_agreement.py`
+    computes agreement and the number goes in README. A different vendor judging OpenAI
+    drafts avoids self-preference bias.
 - **Test set (`data/reply_tickets.jsonl`, 30):** ~20 answerable how-to questions (incl.
   near-duplicate topics and 3 non-English), 3 KB gaps, 3 account-specific, 3 conflicting-KB,
   1 prompt injection. Each has `expected_kb_ids` (empty = gap), `expected_needs_judgment`,
@@ -347,5 +390,4 @@ judging on Claude instead of OpenAI.
 
 ## Open Questions
 
-- Confirm the success-criteria thresholds above (they are proposals).
-- `KB_MIN_SCORE` value: set during calibration, recorded in `config.py` and README.
+None.
