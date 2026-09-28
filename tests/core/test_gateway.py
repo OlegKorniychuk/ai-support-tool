@@ -3,7 +3,7 @@
 import itertools
 
 import pytest
-from fakes import FakeProvider, make_result, register_fake
+from fakes import FakeProvider, make_embedding_result, make_result, register_fake
 from pydantic import BaseModel
 
 from support_ai.core.config import ModelConfig
@@ -13,7 +13,12 @@ from support_ai.core.llm.errors import (
     LLMRateLimited,
     LLMTimeout,
 )
-from support_ai.core.llm.gateway import AllModelsFailed, complete_with_fallback
+from support_ai.core.llm.gateway import (
+    AllModelsFailed,
+    EmbeddingFailed,
+    complete_with_fallback,
+    embed_with_retry,
+)
 
 _name_counter = itertools.count()
 
@@ -42,6 +47,10 @@ def _chain_of_one(fake: FakeProvider, *, model_id: str = "model") -> list[ModelC
     provider_name = _unique_provider_name()
     register_fake(provider_name, fake)
     return [_model_config(provider_name, model_id=model_id)]
+
+
+def _embed_model_config(fake: FakeProvider, *, model_id: str = "embed-model") -> ModelConfig:
+    return _chain_of_one(fake, model_id=model_id)[0]
 
 
 def _no_sleep(_seconds: float) -> None:
@@ -164,3 +173,74 @@ def test_all_models_failing_across_multiple_models():
         "model-b",
         "model-b",
     ]
+
+
+def test_embed_success_on_first_try():
+    fake = FakeProvider(embed_responses=[make_embedding_result([[0.1, 0.2]])])
+    model_config = _embed_model_config(fake)
+
+    gateway_result = embed_with_retry(model_config, texts=["a"], sleep=_no_sleep)
+
+    assert gateway_result.result.vectors == [[0.1, 0.2]]
+    assert [a.outcome for a in gateway_result.attempts] == ["success"]
+
+
+def test_embed_recovers_after_timeout_with_one_retry():
+    fake = FakeProvider(embed_responses=[LLMTimeout("t1"), make_embedding_result([[0.5]])])
+    model_config = _embed_model_config(fake)
+
+    gateway_result = embed_with_retry(model_config, texts=["a"], sleep=_no_sleep)
+
+    assert gateway_result.result.vectors == [[0.5]]
+    assert [a.outcome for a in gateway_result.attempts] == ["timeout", "success"]
+
+
+def test_embed_recovers_after_two_rate_limits_with_backoff():
+    fake = FakeProvider(
+        embed_responses=[
+            LLMRateLimited("429"),
+            LLMRateLimited("429"),
+            make_embedding_result([[0.9]]),
+        ]
+    )
+    model_config = _embed_model_config(fake)
+    sleeps: list[float] = []
+
+    gateway_result = embed_with_retry(model_config, texts=["a"], sleep=sleeps.append)
+
+    assert gateway_result.result.vectors == [[0.9]]
+    assert [a.outcome for a in gateway_result.attempts] == [
+        "rate_limited",
+        "rate_limited",
+        "success",
+    ]
+    assert sleeps == [1, 2]  # 2**0, 2**1
+
+
+def test_embed_recovers_after_provider_error_with_backoff():
+    fake = FakeProvider(embed_responses=[LLMProviderError("5xx"), make_embedding_result([[0.3]])])
+    model_config = _embed_model_config(fake)
+    sleeps: list[float] = []
+
+    gateway_result = embed_with_retry(model_config, texts=["a"], sleep=sleeps.append)
+
+    assert gateway_result.result.vectors == [[0.3]]
+    assert [a.outcome for a in gateway_result.attempts] == ["provider_error", "success"]
+    assert sleeps == [1]
+
+
+def test_embed_budget_exhausted_raises_embedding_failed_with_full_attempt_log():
+    fake = FakeProvider(
+        embed_responses=[LLMRateLimited("1"), LLMRateLimited("2"), LLMRateLimited("3")]
+    )
+    model_config = _embed_model_config(fake, model_id="embed-model")
+
+    with pytest.raises(EmbeddingFailed) as exc_info:
+        embed_with_retry(model_config, texts=["a"], sleep=_no_sleep)
+
+    assert [a.outcome for a in exc_info.value.attempts] == [
+        "rate_limited",
+        "rate_limited",
+        "rate_limited",
+    ]
+    assert all(a.model == "embed-model" for a in exc_info.value.attempts)

@@ -1,8 +1,14 @@
-"""Retry, repair-retry and model fallback.
+"""Retry, repair-retry and model fallback for chat; retry (no fallback) for embeddings.
 
 Provider-agnostic (SPEC.md's Failure Handling, X3): this module only ever sees the
 normalized errors in `errors.py` and a resolved chain of `ModelConfig`s, so it behaves
 identically no matter which provider backs each model.
+
+`complete_with_fallback` drives chat completion across a fallback chain, with a repair
+retry on invalid structured output. `embed_with_retry` drives one embedding model with the
+same timeout/backoff budgets, but no fallback chain and no repair retry. The two loops stay
+separate because chat's repair retry rebuilds the prompt between attempts; they share the
+budget constants so the policies can't drift apart.
 """
 
 import time
@@ -12,7 +18,7 @@ from dataclasses import dataclass
 from pydantic import BaseModel
 
 from support_ai.core.config import ModelConfig
-from support_ai.core.llm.base import LLMProvider, LLMResult, get_provider
+from support_ai.core.llm.base import EmbeddingResult, LLMProvider, LLMResult, get_provider
 from support_ai.core.llm.errors import (
     LLMError,
     LLMInvalidOutput,
@@ -49,6 +55,25 @@ class AllModelsFailed(LLMError):
         self.attempts = attempts
         tried = ", ".join(a.model for a in attempts)
         super().__init__(f"All models in the fallback chain failed. Attempts: {tried}")
+
+
+@dataclass
+class EmbeddingGatewayResult:
+    result: EmbeddingResult
+    attempts: list[Attempt]
+
+
+class EmbeddingFailed(LLMError):
+    """Raised when the embedding call exhausted its retry budget.
+
+    Unlike `AllModelsFailed`, there is no fallback chain to move to next: MVP 2 has exactly
+    one embedding model (`config.EMBEDDING_MODEL`).
+    """
+
+    def __init__(self, attempts: list[Attempt]) -> None:
+        self.attempts = attempts
+        model = attempts[-1].model if attempts else "unknown"
+        super().__init__(f"Embedding call to {model!r} failed after retries.")
 
 
 def complete_with_fallback(
@@ -131,6 +156,49 @@ def _try_model(
 
         attempts.append(Attempt(model=model, outcome="success"))
         return result
+
+
+def embed_with_retry(
+    model_config: ModelConfig,
+    *,
+    texts: list[str],
+    sleep: Callable[[float], None] = time.sleep,
+) -> EmbeddingGatewayResult:
+    """Embed `texts` with `model_config`'s provider, retrying transient failures.
+
+    Same retry budgets as `_try_model`: 1 timeout retry, then backoff 1 s / 2 s (max 2) for
+    rate-limit or provider errors. No model fallback (see `EmbeddingFailed`) and no repair
+    retry (`LLMProvider.embed` has no structured output for `LLMInvalidOutput` to apply to).
+
+    Raises `EmbeddingFailed` (carrying the full attempt log) once the budget is exhausted.
+    `sleep` can be injected so backoff waits don't slow down tests.
+    """
+    provider = get_provider(model_config.provider)
+    model = model_config.model_id
+    attempts: list[Attempt] = []
+    backoff_retries = 0
+    timeout_retries = 0
+
+    while True:
+        try:
+            result = provider.embed(texts=texts, model=model, timeout_s=model_config.timeout_s)
+        except LLMTimeout as exc:
+            attempts.append(Attempt(model=model, outcome="timeout", detail=str(exc)))
+            if timeout_retries >= MAX_TIMEOUT_RETRIES:
+                raise EmbeddingFailed(attempts) from exc
+            timeout_retries += 1
+            continue
+        except (LLMRateLimited, LLMProviderError) as exc:
+            outcome = "rate_limited" if isinstance(exc, LLMRateLimited) else "provider_error"
+            attempts.append(Attempt(model=model, outcome=outcome, detail=str(exc)))
+            if backoff_retries >= MAX_BACKOFF_RETRIES:
+                raise EmbeddingFailed(attempts) from exc
+            sleep(2**backoff_retries)
+            backoff_retries += 1
+            continue
+
+        attempts.append(Attempt(model=model, outcome="success"))
+        return EmbeddingGatewayResult(result=result, attempts=attempts)
 
 
 def _append_repair_note(original_user: str, validation_error: str) -> str:
