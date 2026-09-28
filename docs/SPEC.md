@@ -152,7 +152,7 @@ data/tickets.jsonl            → 45 synthetic tickets with expected category, n
 results/                      → eval runs (<model>_<prompt>_<date>.json + summary.csv), committed
 tests/                        → unit tests (LLM mocked) + Streamlit page smoke tests
 docs/
-  REQUIREMENTS.md, SPEC.md
+  REQUIREMENTS_MVP1.md, REQUIREMENTS_MVP2.md, SPEC.md
 README.md                     → the write-up: D1.1–D1.7 and X1–X5
 ```
 
