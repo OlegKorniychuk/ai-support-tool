@@ -85,7 +85,8 @@ EMBEDDING_MODEL: str = "text-embedding-3-small"
 # Default KB retrieval backend, looked up in kb/base.py's registry (kb/__init__.py wires
 # "in_memory" in on import). Swapping backends is changing this one string.
 KB_BACKEND: str = "in_memory"
-KB_TOP_K: int = 3
+# 4: r007's article ranks 4th; conflict pairs can still fall outside, e.g. r027 at rank 6.
+KB_TOP_K: int = 4
 # `in_memory`-adapter-only (other backends set their own threshold on their own scale).
 # Checked 2026-09-28 with scripts/kb_scores.py on data/reply_tickets.jsonl: answerable best
 # scores start at 0.43, but near-topic gaps (gift, family sharing: 0.42-0.49) overlap them, so
@@ -99,7 +100,7 @@ KB_CACHE_PATH: Path = Path(__file__).resolve().parents[3] / ".cache" / "kb_embed
 # Cheapest first, as DEFAULT_MODEL_CHAIN; the default is the cheapest model that meets the
 # targets after the Task 19 comparison (as in MVP 1).
 DEFAULT_REPLY_CHAIN: list[str] = ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5"]
-DEFAULT_REPLY_PROMPT_VERSION: str = "v1"
+DEFAULT_REPLY_PROMPT_VERSION: str = "v2"
 SUMMARY_PROMPT_VERSION: str = "v1"
 # The `short` tone's own word-count rule; `test_reply_prompts.py` checks the prompt states
 # this same number, so changing either alone fails the contract test.
