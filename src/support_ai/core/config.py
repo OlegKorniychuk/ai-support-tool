@@ -86,9 +86,13 @@ EMBEDDING_MODEL: str = "text-embedding-3-small"
 # "in_memory" in on import). Swapping backends is changing this one string.
 KB_BACKEND: str = "in_memory"
 KB_TOP_K: int = 3
-# Placeholder; calibrated in Task 17 with scripts/kb_scores.py. `in_memory`-adapter-only:
-# other backends set their own relevance threshold on their own score scale.
-KB_MIN_SCORE: float = 0.3
+# `in_memory`-adapter-only (other backends set their own threshold on their own scale).
+# Checked 2026-09-28 with scripts/kb_scores.py on data/reply_tickets.jsonl: answerable best
+# scores start at 0.43, but near-topic gaps (gift, family sharing: 0.42-0.49) overlap them, so
+# no threshold separates the groups. It is set to never block an answerable ticket and only
+# catch clearly off-KB ones (promo codes: 0.24); near-topic gaps rely on the model citing no
+# article (the post-generation `kb_not_found` check).
+KB_MIN_SCORE: float = 0.35
 KB_DIR: Path = Path(__file__).resolve().parents[3] / "data" / "kb"
 KB_CACHE_PATH: Path = Path(__file__).resolve().parents[3] / ".cache" / "kb_embeddings.json"
 
