@@ -19,7 +19,7 @@ Use the sidebar to navigate:
 - **Reply Assistant** — paste a general-question ticket and get a summary, the
   KB article it's grounded in, and 3 ready-to-edit reply drafts — or a
   "decide yourself" banner when it can't safely draft one.
-- **Reply Eval** *(coming soon)* — per-ticket retrieval, grounding and judge
-  results, plus a model comparison, for the Reply Assistant.
+- **Reply Eval** — per-ticket retrieval, grounding and judge results, plus a
+  model comparison, for the Reply Assistant.
 """
 )
