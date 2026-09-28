@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 
 from support_ai.assistant.schema import Tone
-from support_ai.core.config import SHORT_MAX_WORDS
+from support_ai.core.config import DEFAULT_REPLY_PROMPT_VERSION, SHORT_MAX_WORDS
 
 SKILL_DIR = Path(__file__).resolve().parents[2] / ".claude" / "skills" / "judge-replies"
 
@@ -48,9 +48,15 @@ def test_skill_references_the_recorder_and_the_rubric():
     assert "rubric.md" in text
 
 
-def test_rubric_states_rubric_version_v1():
+def test_rubric_states_rubric_version_v2():
     text = (SKILL_DIR / "rubric.md").read_text(encoding="utf-8")
-    assert "rubric_version: v1" in text
+    assert "rubric_version: v2" in text
+
+
+def test_rubric_is_shared_with_the_default_reply_prompt():
+    # Stops the judge scoring a new prompt against an older prompt's tone rules.
+    text = (SKILL_DIR / "rubric.md").read_text(encoding="utf-8")
+    assert f"reply_{DEFAULT_REPLY_PROMPT_VERSION}.md" in text
 
 
 def test_rubric_has_a_heading_for_every_tone():

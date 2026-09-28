@@ -1,12 +1,21 @@
-rubric_version: v1
+rubric_version: v2
 
 # Reply-assistant judging rubric
 
-Shared with `src/support_ai/assistant/prompts/reply_v1.md` (the drafting prompt): the tone
-rules below are restated exactly as they appear there, so the model that writes the drafts
-and the judge that scores them agree on what each tone means. Judge only the drafts (and,
+Shared with `src/support_ai/assistant/prompts/reply_v4.md` (the drafting prompt): the tone
+rules below are restated from there, so the model that writes the drafts and the judge that
+scores them agree on what each tone means. v2 of this rubric (for prompts v3+) adds the
+addressee rule and the `short` two-sentence cap; v1 runs were judged against the looser v1
+rules, so compare tone scores only between runs judged with the same rubric version. Judge only the drafts (and,
 for every ticket, the summary) — not whether retrieval found the right article or whether
 the human-judgment flag was correct. Those are checked separately, by code.
+
+## Every draft
+
+Written to the customer, ready to send: addresses the customer directly as "you", greets
+them as `[Customer name]`, and uses `[Agent name]` only in the sign-off. A draft that
+greets or addresses the agent (e.g. "Hello [Agent name],"), or talks about the customer in
+the third person, breaks this rule — score it 2 at most, whatever its tone.
 
 ## formal
 
@@ -15,13 +24,15 @@ no emoji.
 
 ## empathetic
 
-Opens by naming the customer's specific situation and how they likely feel about it
-(frustrated, worried, confused, relieved, ...), in a warm tone — then gives the same facts
-as the other two drafts.
+Starts with a brief greeting to the customer, then names their specific situation and how
+they likely feel about it (frustrated, worried, confused, relieved, ...), in a warm tone —
+then gives the same facts as the other two drafts, in its own words: a different opening and
+phrasing from `formal`, not the same sentences with a greeting stitched on.
 
 ## short
 
-At most 50 words: the answer, plus one concrete next step. No greeting needed.
+At most 50 words and two sentences: the answer plus one concrete next step, covering every
+part of a multi-part question. No greeting needed.
 
 ## `tone_score` (1–5)
 

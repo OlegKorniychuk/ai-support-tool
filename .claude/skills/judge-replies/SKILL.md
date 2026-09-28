@@ -36,13 +36,14 @@ them. A different vendor (you, Sonnet) judges OpenAI's drafts to avoid self-pref
    - Set `distinct: true/false` for a drafted ticket (do the 3 tones actually read
      differently, not just reworded?); `null` for a flagged ticket.
 4. **Write `results/reply/<run>.judge.json`**, exactly matching the `JudgeRun` shape
-   (`src/support_ai/eval/judge.py`) — one `TicketVerdict` per record, in any order:
+   (`src/support_ai/eval/judge.py`) — one `TicketVerdict` per record, in any order.
+   Set `rubric_version` to the `rubric_version:` value on the first line of `rubric.md`:
 
    ```json
    {
      "run": "gpt-5.4-nano_v1_20260928T120000Z",
      "judge_model": "claude-sonnet-5",
-     "rubric_version": "v1",
+     "rubric_version": "v2",
      "judged_at": "2026-09-28T14:05:00Z",
      "verdicts": [
        {
