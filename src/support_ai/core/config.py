@@ -97,8 +97,11 @@ KB_MIN_SCORE: float = 0.35
 KB_DIR: Path = Path(__file__).resolve().parents[3] / "data" / "kb"
 KB_CACHE_PATH: Path = Path(__file__).resolve().parents[3] / ".cache" / "kb_embeddings.json"
 
-# Cheapest first, as DEFAULT_MODEL_CHAIN; the default is the cheapest model that meets the
-# targets after the Task 19 comparison (as in MVP 1).
+# Cheapest first, as DEFAULT_MODEL_CHAIN. Task 19 comparison (prompt v4, 30 tickets): no model
+# meets every target (r027's conflict is a retrieval limit for all). nano: recall 82% /
+# precision 71% (mean of 5 runs), $5.77/10k, p50 3.6 s; mini: 78% / 54%, $22/10k — no gain
+# over nano; gpt-5: 89% / 80%, judge best, but $116/10k and p50 9.0 s (over the 6 s target).
+# nano stays first: cheapest, within latency, and every flag still hides drafts.
 DEFAULT_REPLY_CHAIN: list[str] = ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5"]
 DEFAULT_REPLY_PROMPT_VERSION: str = "v4"
 SUMMARY_PROMPT_VERSION: str = "v1"
